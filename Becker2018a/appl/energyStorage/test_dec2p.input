@@ -1,0 +1,60 @@
+###############################################################
+# Parameter file for test_impes.
+# Everything behind a '#' is a comment.
+# Type "./test_impes --help" for more information.
+###############################################################
+
+###############################################################
+# Mandatory arguments
+###############################################################
+
+[TimeManager]
+TEnd = 6.88e5 # [s]
+DtInitial = 10 # [s]
+
+[Grid]
+UpperRight = 350 30
+LowerLeft = 0 0
+Cells = 350 128
+
+ClosureType = None
+
+[Problem]
+Name = test_dec2p # name passed to the output routines
+#OutputInterval = 400
+OutputTimeInterval = 0.54e5
+
+[BoundaryConditions]
+Injectionrate = -5.835e-4 # [kg/(m² s)] (Neumann flux)
+
+[VE]
+VEModel = 1 # [-] 0 -> sharp interface model, 1 -> capillary fringe, >1 -> no ve-model
+
+[Output]
+PlotFluidMatrixInteractions = 0 # plot pc-sw and kr-sw curves
+
+[GridAdapt]
+MinLevel = 0 # [-] minimum level of refinement
+MaxLevel = 0 # [-] maximum level of refinement
+RefineTolerance = 0.05 # threshold for refinement criterion
+CoarsenTolerance = 0.001 # threshold for coarsening criterion
+RefineAtFluxBC = true
+
+############################################################
+# Optional arguments
+############################################################
+
+[Vtk]
+OutputLevel = 1 # 0 -> only primary variables (default), 1 -> also secondary variables
+
+###############################################################
+# Simulation restart
+#
+# DuMux simulations can be restarted from *.drs files
+# Set Restart to the value of a specific file, 
+# e.g.:  'Restart = 27184.1' for the restart file
+# name_time=27184.1_rank=0.drs
+# Please comment in the two lines below, if restart is desired.
+###############################################################
+# [TimeManager]
+# Restart = ...
