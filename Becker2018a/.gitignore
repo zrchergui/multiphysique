@@ -2,4 +2,9 @@
 /*
 # Except this file
 !/appl
+!/test
+!CMakeLists.txt
+!config.h.cmake
+!Becker2018a.pc.in
+!README.md
 !.gitignore
