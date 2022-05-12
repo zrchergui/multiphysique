@@ -1,0 +1,47 @@
+[TimeManager]
+TEnd = 6.88e5 # 3.1536e7 # [s]
+DtInitial = 10 #[s]
+MaxTimeStepSize = 200.0  # [s]
+
+[Grid]
+UpperRight = 350 30
+LowerLeft = 0 0
+Cells = 350 1
+Reconstruction = 7 # number of refinement steps in z-direction
+
+[Impet]
+CFLFactor = 0.1 # might have to decrease to 0.1 for certain parameters if oscillations occur
+
+[Problem]
+Name = test_2pve # name passed to the output routines
+#OutputInterval = 100
+OutputTimeInterval = 0.54e5
+
+[SpatialParams]
+Model = 2 # 0: linear model, 1: exponential model, 2: Brooks-Corey model
+Lambda = 2 # Brooks-Corey lambda for capillary pressure (for BC and exponential law)
+LambdaKr = 2 # Brooks-Corey lambda for relative permeability (only for BC)
+Exponent = 2 # exponent for relative permeability (only for exponential law), has to be larger than 0
+EntryPressure = 1.0e5 # CO2 entry pressure
+#EntryPressure = 0.3e5 # CH4 entry pressure
+MaxPc = 0.4e5  # maximum capillary pressure (only for linear model)
+PermeabilityHorizontal = 2.0e-12 # m/s^2;
+PermeabilityVertical = 2.0e-12 # m/s^2;
+Porosity = 0.2
+
+[Output]
+PlotFluidMatrixInteractions = 0 # plot pc-sw and kr-sw curves
+
+[BoundaryConditions]
+Injectionrate = -5.835e-4 # [kg/(m² s)] CO2 (Neumann flux)
+#Injectionrate = -1.5e-5 # [kg/(m² s)] CH4 (Neumann flux)
+
+[VE]
+VEModel = 1 # [-] 0 -> sharp interface model, 1 -> capillary fringe, >1 -> no ve-model
+correction = 0 # [-] 0 -> no correction of saturation in plume, 1 -> simple correction with domain height, 2 -> modify
+the domain height with analytic solution, 3 -> modify the domain height with numerical solution,
+4 -> calculate saturation in plume explicitly
+PseudoResidualSaturation = 0.0 # [-] set pseudo residual saturation for the case of no correction
+
+[Vtk]
+OutputLevel = 1 # 0 -> only primary variables (default), 1 -> also secondary variables

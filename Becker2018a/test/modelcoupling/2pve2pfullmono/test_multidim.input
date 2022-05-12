@@ -1,0 +1,55 @@
+[TimeManager]
+TEnd = 6.88e5 # [s]
+DtInitial = 10 #[s]
+MaxTimeStepSize = 200.0 # [s]
+
+[Grid]
+UpperRight = 350 30
+LowerLeft = 0 0
+Cells = 350 1
+2DRefinement = 3
+2DArea = 50
+Reconstruction = 7 # has to be at least as large as MaxLevel
+RefinementType = "Copy"
+ClosureType = "None"
+
+[Impet]
+CFLFactor = 0.9
+#IterationFlag = 2
+#IterationNumber = 20
+
+[Problem]
+Name = test_2pveMultiDim # name passed to the output routines
+#OutputInterval = 100
+OutputTimeInterval = 0.54e5
+
+[BoundaryConditions]
+InjectionrateN = -5.835e-4 # [kg/(m² s)] (Neumann flux)
+InjectionrateW = 0.0 # [kg/(m³ s)]
+
+[SpatialParams]
+Model = 1 # 0: linear model, 1: exponential model, 2: Brooks-Corey model, this is only necessary if VE-correction is switched on
+Lambda = 2.0 # Brooks-Corey lambda (only for Brooks-Corey model)
+EntryPressure = 1.0e5 # entry pressure
+MaxPc = 0.0  # maximum capillary pressure (only for linear and exponential model)
+Exponent = 2 # exponent (only for exponential relative permeability rule), has to be larger than 0
+Permeability = 2.0e-12 # m^2;
+Porosity = 0.2
+
+[VE]
+VEModel = 1 # [-] 0 -> sharp interface model, 1 -> capillary fringe, >1 -> no ve-model
+correction = 0 # [-] 0 -> no correction of saturation in plume, 1 -> correction
+PseudoResidualSaturation = 0.0 # [-] set pseudo residual saturation for the case of no correction
+
+[GridAdapt]
+MinLevel = 0 # [-] minimum level of refinement
+MaxLevel = 7 # [-] maximum level of refinement
+RefineTolerance = 0.1 # threshold for refinement criterion
+CoarsenTolerance = 0.01 # threshold for coarsening criterion
+AbsoluteError = 0.03 # accepted error in profile
+
+[Vtk]
+OutputLevel = 2 # 0 -> only primary variables (default), 1 -> also secondary variables
+
+[Output]
+PlotFluidMatrixInteractions = 0 # plot pc-sw and kr-sw curves
