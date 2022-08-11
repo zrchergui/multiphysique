@@ -1,5 +1,5 @@
 [TimeManager]
-TEnd = 6.88e5 # [s]
+TEnd = 8.64e5 # [s]
 DtInitial = 10 #[s]
 MaxTimeStepSize = 200.0 # [s]
 
@@ -9,7 +9,7 @@ LowerLeft = 0 0
 Cells = 350 1
 2DRefinement = 3
 2DArea = 50
-Reconstruction = 7 # has to be at least as large as MaxLevel
+Reconstruction = 5 # has to be at least as large as MaxLevel
 RefinementType = "Copy"
 ClosureType = "None"
 
@@ -43,7 +43,7 @@ PseudoResidualSaturation = 0.0 # [-] set pseudo residual saturation for the case
 
 [GridAdapt]
 MinLevel = 0 # [-] minimum level of refinement
-MaxLevel = 7 # [-] maximum level of refinement
+MaxLevel = 5 # [-] maximum level of refinement
 RefineTolerance = 0.1 # threshold for refinement criterion
 CoarsenTolerance = 0.01 # threshold for coarsening criterion
 AbsoluteError = 0.03 # accepted error in profile

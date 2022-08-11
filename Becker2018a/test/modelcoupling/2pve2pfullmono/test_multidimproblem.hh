@@ -194,7 +194,8 @@ enum
 enum VEModel
 {
     sharpInterface,
-    capillaryFringe
+    capillaryFringe,
+    numPhases = GET_PROP_VALUE(TypeTag, NumPhases)
 };
 
 typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
@@ -238,6 +239,36 @@ debugWriter_(GridCreator::grid().leafGridView(), "debugGridAfterAdaptation"), no
 
     updateColumnMap();
 
+//    //calculate segregation time
+//        // iterate over all elements
+//    int j = 0;
+//    for (const auto& element : Dune::elements(this->gridView()))
+//    {
+//        // identify column number
+//        GlobalPosition globalPos = element.geometry().center();
+//        CellArray numberOfCellsX = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
+//        double deltaX = this->bBoxMax()[0]/numberOfCellsX[0];
+//
+//        j = round((globalPos[0] - (deltaX/2.0))/deltaX);
+//
+//        mapAllColumns_.insert(std::make_pair(j, element));
+//        dummy_ = element;
+//    }
+//
+//    numberOfColumns_ = j;
+//    GlobalPosition globalPos = dummy_.geometry().center();
+//    //GlobalPosition globalPos = element.geometry().center();
+//    Scalar pRef = referencePressureAtPos(globalPos);
+//    Scalar tempRef = temperatureAtPos(globalPos);
+//    Scalar densityW = WettingPhase::density(tempRef, pRef);
+//    Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+//    Scalar height = this->bBoxMax()[dim-1];
+//    Scalar porosity = this->spatialParams().porosity(dummy_);
+//    Scalar viscosityW = WettingPhase::viscosity(tempRef, pRef);
+//    Scalar permeability = this->spatialParams().intrinsicPermeability(dummy_);
+//    Scalar gravity = this->gravity().two_norm();
+//    segTime_ = (height*porosity*viscosityW)/(permeability*gravity*(densityW-densityNw));
+    segTime_=48*36000;
     //calculate length of capillary transition zone (CTZ)
     Scalar swr = this->spatialParams().materialLawParams(dummy_).swr();
     Scalar snr = this->spatialParams().materialLawParams(dummy_).snr();
@@ -350,10 +381,43 @@ void init()
     // plot the Pc-Sw curves, if requested
     if(plotFluidMatrixInteractions)
         this->spatialParams().plotMaterialLaw();
+
+    //for the initialization of xi in gasplummdist
+    Scalar domainHeight = this->bBoxMax()[dim - 1];
+    gasPlumeDist_temps.resize(numberOfColumns_);
+    for (int i = 0; i < numberOfColumns_; i++)
+    {
+        gasPlumeDist_temps[i] = domainHeight / 2.0; //XiStart
+    }
+    beginCPU = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation
 }
 
 void postTimeStep()
 {
+    endCPU = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation
+    elapsedCPU = std::chrono::duration_cast<std::chrono::nanoseconds>(endCPU - beginCPU);// for the calculation of the time of computation
+    beginTC = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation of criterion
+
+//    outputFile_.open("errorSat_abs.out", std::ios::app);
+//    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
+//    outputFile_.close();
+
+//    outputFile_.open("errorPerm_abs.out", std::ios::app);
+//    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
+//    outputFile_.close();
+
+    outputFile_.open("errorPressure_abs.out", std::ios::app);
+    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
+    outputFile_.close();
+
+    outputFile_.open("elapsed_xi_ch.out", std::ios::app);
+    outputFile_ <<  this->timeManager().time()/segTime_ ;
+    outputFile_.close();
+
+    outputFile_.open("iternubr_multidim.out", std::ios::app);
+    outputFile_ <<  this->timeManager().time()/segTime_ ;
+    outputFile_.close();
+
     ParentType::postTimeStep();
 
     //plot reconstructed solution
@@ -722,6 +786,156 @@ void postTimeStep()
 //    outputFile_ << this->timeManager().time() << " " << errorSat << std::endl;
 //    outputFile_.close();
 //
+
+/*!
+ * \brief CALCULATION OF THR CRITERION
+ *
+ *
+ *
+ *
+ */
+
+    int numberOfColumns = numberOfCells[0];
+    Scalar domainHeight = this->bBoxMax()[dim - 1];
+    const int maxLevel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, GridAdapt, MaxLevel);
+    double deltaZ = domainHeight/(numberOfCells[dim - 1]*std::pow(2, maxLevel));
+    // prepare an indicator for refinement
+    if(indicatorVector_.size() != numberOfColumns)
+    {
+        indicatorVector_.resize(numberOfColumns);
+    }
+
+    std::fill(indicatorVector_.begin(), indicatorVector_.end(), 0.);
+
+    int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
+    std::multimap<int, Element> mapAllColumns = this->getColumnMap();
+    for(int i=0;i<numberOfColumns;i++) {
+        if (i < 4)//never have VE in the first four columns
+        {
+            indicatorVector_[i] = 2;
+            outputFile_.open("errorPressure_abs.out", std::ios::app);
+            outputFile_ << " " << indicatorVector_[i];
+            outputFile_.close();
+            continue;
+        }
+        int columnModel = modelVector_[i];
+        if (columnModel == 0 || columnModel == 1) {
+            outputFile_.open("errorPressure_abs.out", std::ios::app);
+            outputFile_ << " " << indicatorVector_[i];
+            outputFile_.close();
+            continue;
+        }
+
+        typename std::map<int, Element>::iterator it = mapAllColumns.lower_bound(i);
+        // for the initiation of the 1er term of iteration
+        Scalar gasPlumeDist_arg = gasPlumeDist_temps[i];
+        Scalar gasPlumeDist = calculateGasPlumeDist(it->second, averageSatColumn[i], gasPlumeDist_arg);
+        gasPlumeDist_temps[i] = gasPlumeDist;//domainHeight / 2.0;
+
+        Scalar errorSat = 0.0;
+        Scalar errorRelPerm = 0.0;
+        Scalar errorPressurew = 0.0;
+
+        it = mapAllColumns.lower_bound(i);
+        int globalIdxILower = this->variables().index(it->second);
+        Scalar coarsePresw = this->variables().cellData(globalIdxILower).pressure(wPhaseIdx);
+
+        Element veElement = mapAllColumns.find(i)->second;
+
+
+        for (; it != mapAllColumns.upper_bound(i); ++it) {
+            Element element = it->second;
+            Scalar resSatW = this->spatialParams().materialLawParams(element).swr();
+            int globalIdxI = this->variables().index(element);
+            GlobalPosition globalPos = (element).geometry().center();
+            Scalar top = globalPos[dim - 1] + deltaZ / 2.0;
+            Scalar bottom = globalPos[dim - 1] - deltaZ / 2.0;
+
+            Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
+            Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(element), satW);
+            Scalar PresW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+
+            if (veModel == sharpInterface)//calculate error for VE model
+            {
+                if (top <= gasPlumeDist) {
+                    errorSat += std::abs(deltaZ * (satW - 1.0));
+                    errorRelPerm += std::abs(deltaZ * (krw - 1.0));
+                } else if (bottom >= gasPlumeDist) {
+                    errorSat += std::abs(deltaZ * (satW - resSatW));
+                    errorRelPerm += std::abs(deltaZ * (krw - 0.0));
+                } else {
+                    Scalar lowerDelta = gasPlumeDist - bottom;
+                    Scalar upperDelta = top - gasPlumeDist;
+                    errorSat += std::abs(lowerDelta * (satW - 1.0)) + std::abs(upperDelta * (satW - resSatW));
+                    errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + std::abs(upperDelta * (krw - 0.0));
+                }
+            }
+            if (veModel == capillaryFringe)//calculate error for capillary fringe model
+            {
+                if (top <= gasPlumeDist) {
+                    errorSat += std::abs(deltaZ * (satW - 1.0));
+                    errorRelPerm += std::abs(deltaZ * (krw - 1.0));
+                } else if (bottom >= gasPlumeDist) {
+                    errorSat +=calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
+                    errorRelPerm += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+                    errorPressurew += (1 / PresW) * calculateErrorPresIntegral(bottom, top, PresW,veElement);
+
+                } else {
+                    Scalar lowerDelta = gasPlumeDist - bottom;
+                    Scalar upperDelta = top - gasPlumeDist;
+                    errorSat += std::abs(lowerDelta * (satW - 1.0)) +calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+                    errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) +calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+                    errorPressurew += (1 / PresW) * calculateErrorPresIntegral(gasPlumeDist, top, PresW,veElement);
+                }
+            }
+
+        }
+
+        //indicatorVector_[i] = errorSat / (domainHeight - gasPlumeDist);
+        //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
+        indicatorVector_[i] =  errorPressurew / (domainHeight - gasPlumeDist);
+
+//    outputFile_.open("errorPerm_abs.out", std::ios::app);
+//    outputFile_ << " " << indicatorVector_[i];
+//    outputFile_.close();
+//
+//    outputFile_.open("errorPerm_abs.out", std::ios::app);
+//    outputFile_ << " " << indicatorVector_[i];
+//    outputFile_.close();
+
+        outputFile_.open("errorPressure_abs.out", std::ios::app);
+        outputFile_ << " " << indicatorVector_[i];
+        outputFile_.close();
+    }
+
+//    outputFile_.open("errorPerm_abs.out", std::ios::app);
+//    outputFile_ << " " << std::endl;
+//    outputFile_.close();
+//
+//    outputFile_.open("errorPerm_abs.out", std::ios::app);
+//    outputFile_ << " " << std::endl;
+//    outputFile_.close();
+//
+    outputFile_.open("errorPressure_abs.out", std::ios::app);
+    outputFile_ << " " << std::endl;
+    outputFile_.close();
+
+    outputFile_.open("time.out", std::ios::app);
+    outputFile_ <<this->timeManager().time()/segTime_<< " " << std::endl;
+    outputFile_.close();
+
+    outputFile_.open("elapsed_xi_ch.out", std::ios::app);
+    outputFile_ << " " << std::endl;
+    outputFile_.close();
+
+    outputFile_.open("iternubr_multidim.out", std::ios::app);
+    outputFile_ << " " << std::endl;
+    outputFile_.close();
+
+    outputFile_.open("CPU_TimeGasDis.out", std::ios::app);
+    outputFile_ << this->timeManager().time()/segTime_ << " "<< elapsedCPU.count() << std::endl;
+    outputFile_.close();
+    //
     outputFile_.open("averageSatColumn.out", std::ios::app);
     outputFile_ << " " << std::endl;
     outputFile_.close();
@@ -747,6 +961,13 @@ void postTimeStep()
 
     outputFile_.open("numberOfCells.out", std::ios::app);
     outputFile_ << this->timeManager().time() << " " << numberOfCellsTotal << std::endl;
+    outputFile_.close();
+
+    endTC = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation of criterion
+    elapsedTC = std::chrono::duration_cast<std::chrono::nanoseconds>(endTC - beginTC);// for the calculation of the time of computation of criterion
+
+    outputFile_.open("TC_TimeGasDis.out", std::ios::app);
+    outputFile_ << this->timeManager().time()/segTime_ <<" " << elapsedTC.count()<< std::endl;
     outputFile_.close();
 }
 
@@ -813,86 +1034,102 @@ void debugPlot()
  *
  * Stores minGasPlumeDist for all grid cells
  */
-Scalar calculateGasPlumeDist(const Element& element, Scalar satW)
-{
-    Scalar domainHeight = this->bBoxMax()[dim - 1];
-    Scalar resSatW = this->spatialParams().materialLawParams(*element).swr();
-    Scalar resSatN = this->spatialParams().materialLawParams(*element).snr();
-    Scalar gravity = this->gravity().two_norm();
-    int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
-
-    Scalar gasPlumeDist = 0.0;
-
-    if (veModel == sharpInterface) //calculate gasPlumeDist for sharp interface ve model
+    Scalar calculateGasPlumeDist(const Element& element, Scalar satW, Scalar init_guess)
     {
-        gasPlumeDist = domainHeight * (satW - resSatW) / (1.0 - resSatW);
-    }
+        Scalar domainHeight = this->bBoxMax()[dim - 1];
+        Scalar resSatW = this->spatialParams().materialLawParams(element).swr();
+        Scalar resSatN = this->spatialParams().materialLawParams(element).snr();
+        Scalar gravity = this->gravity().two_norm();
+        int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
 
-    else if (veModel == capillaryFringe) //calculate gasPlumeDist for capillary fringe model
-    {
-        GlobalPosition globalPos = element.geometry().center();
-        Scalar pRef = referencePressureAtPos(globalPos);
-        Scalar tempRef = temperatureAtPos(globalPos);
-        Scalar densityW = WettingPhase::density(tempRef, pRef);
-        Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
-        Scalar lambda = this->spatialParams().materialLawParams(*element).lambda();
-        Scalar entryP = this->spatialParams().materialLawParams(*element).pe();
+        Scalar gasPlumeDist = 0.0;
+        int iternubr=0;// for the calculation of the iteration number
 
-        Scalar Xi = domainHeight / 2.0; //XiStart
-
-        Scalar fullIntegral = 1.0 / (1.0 - lambda) * (1.0 - resSatW - resSatN) / ((densityW - densityNw) * gravity) * (std::pow(entryP, lambda)
-        - std::pow(entryP, 2.0 - lambda) + std::pow((domainHeight * (densityW - densityNw) * gravity + entryP), (1.0 - lambda)));
-        //GasPlumeDist>0
-        if (fullIntegral < satW * domainHeight)
+        if (veModel == sharpInterface) //calculate gasPlumeDist for sharp interface ve model
         {
-            //solve equation for
-            for (int count = 0; count < 100; count++)
+            gasPlumeDist = domainHeight * (satW - resSatW) / (1.0 - resSatW);
+        }
+
+        else if (veModel == capillaryFringe) //calculate gasPlumeDist for capillary fringe model
+        {
+            auto begin = std::chrono::high_resolution_clock::now();//Time of calculation of zp
+
+            GlobalPosition globalPos = element.geometry().center();
+            Scalar pRef = referencePressureAtPos(globalPos);
+            Scalar tempRef = temperatureAtPos(globalPos);
+            Scalar densityW = WettingPhase::density(tempRef, pRef);
+            Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+            Scalar lambda = this->spatialParams().materialLawParams(element).lambda();
+            Scalar entryP = this->spatialParams().materialLawParams(element).pe();
+
+            Scalar Xi = init_guess;// for the initiation of the 1er term of iteration
+
+            Scalar fullIntegral = 1.0 / (1.0 - lambda) * (1.0 - resSatW - resSatN) / ((densityW - densityNw) * gravity) * (std::pow(entryP, lambda)
+                                                                                                                           - std::pow(entryP, 2.0 - lambda) + std::pow((domainHeight * (densityW - densityNw) * gravity + entryP), (1.0 - lambda)));
+            //GasPlumeDist>0
+            if (fullIntegral < satW * domainHeight)
             {
-                Scalar residual = 1.0 / (1.0 - lambda) * std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP),(1.0 - lambda))
-                * (1.0 - resSatW - resSatN) * std::pow(entryP, lambda) / ((densityW - densityNw) * gravity) + resSatW * (domainHeight - Xi)
-                - entryP * (1.0 - resSatW - resSatN) / ((1.0 - lambda) * (densityW - densityNw) * gravity) + Xi - satW * domainHeight;
+                //solve equation for
+                for (int count = 0; count < 100; count++)
+                {
+                    iternubr = count;// for the calculation of the iteration number
+                    Scalar residual = 1.0 / (1.0 - lambda) * std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP),(1.0 - lambda))
+                                      * (1.0 - resSatW - resSatN) * std::pow(entryP, lambda) / ((densityW - densityNw) * gravity) + resSatW * (domainHeight - Xi)
+                                      - entryP * (1.0 - resSatW - resSatN) / ((1.0 - lambda) * (densityW - densityNw) * gravity) + Xi - satW * domainHeight;
 
-                if (fabs(residual) < 1e-10)
-                    break;
+                    if (fabs(residual) < 1e-10)
+                        break;
 
-                Scalar derivation = std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP), -lambda) * (resSatN + resSatW - 1.0)
-                        * std::pow(entryP, lambda) - resSatW + 1.0;
+                    Scalar derivation = std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP), -lambda) * (resSatN + resSatW - 1.0)
+                                        * std::pow(entryP, lambda) - resSatW + 1.0;
 
-                Xi = Xi - residual / (derivation);
+                    Xi = Xi - residual / (derivation);
+                }
             }
-        }
-        //GasPlumeDist<0
-        else if (fullIntegral > satW * domainHeight)
-        {
-            //solve equation
-            for (int count = 0; count < 100; count++)
+                //GasPlumeDist<0
+            else if (fullIntegral > satW * domainHeight)
             {
-                Scalar residual = 1.0 / (1.0 - lambda) * std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP),
-                        (1.0 - lambda)) * (1.0 - resSatW - resSatN)* std::pow(entryP, lambda) / ((densityW - densityNw) * gravity)
-                        + resSatW * domainHeight - 1.0 / (1.0 - lambda) * std::pow(((-Xi) * (densityW - densityNw)
-                        * gravity + entryP),(1.0 - lambda)) * (1.0 - resSatW - resSatN) * std::pow(entryP, lambda) / ((densityW - densityNw)
-                                * gravity)
-                                - satW * domainHeight;
-                if (fabs(residual) < 1e-10)
-                    break;
+                //solve equation
+                for (int count = 0; count < 100; count++)
+                {
+                    iternubr = count;////////////////////////
+                    Scalar residual = 1.0 / (1.0 - lambda) * std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP),
+                                                                      (1.0 - lambda)) * (1.0 - resSatW - resSatN)* std::pow(entryP, lambda) / ((densityW - densityNw) * gravity)
+                                      + resSatW * domainHeight - 1.0 / (1.0 - lambda) * std::pow(((-Xi) * (densityW - densityNw)
+                                                                                                  * gravity + entryP),(1.0 - lambda)) * (1.0 - resSatW - resSatN) * std::pow(entryP, lambda) / ((densityW - densityNw)
+                                                                                                                                                                                                * gravity)
+                                      - satW * domainHeight;
+                    if (fabs(residual) < 1e-10)
+                        break;
 
-                Scalar derivation = std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP), -lambda)
-                * (resSatN + resSatW - 1.0) * std::pow(entryP, lambda) + std::pow(((-Xi) * (densityW - densityNw) * gravity + entryP),
-                        -lambda) * (1.0 - resSatN - resSatW) * std::pow(entryP, lambda);
+                    Scalar derivation = std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP), -lambda)
+                                        * (resSatN + resSatW - 1.0) * std::pow(entryP, lambda) + std::pow(((-Xi) * (densityW - densityNw) * gravity + entryP),
+                                                                                                          -lambda) * (1.0 - resSatN - resSatW) * std::pow(entryP, lambda);
 
-                Xi = Xi - residual / (derivation);
-            };
+                    Xi = Xi - residual / (derivation);
+                };
+            }
+                //GasPlumeDist=0
+            else
+            {
+                Xi = 0.0;
+            }
+            gasPlumeDist = Xi;
+
+            auto end = std::chrono::high_resolution_clock::now();//Time of calculation of zp
+            auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);//Time of calculation of zp
+
+            outputFile_.open("elapsed_xi_ch.out", std::ios::app);
+            outputFile_ << " " << elapsed.count();
+            outputFile_.close();
+
+            outputFile_.open("iternubr_multidim.out", std::ios::app); // for the calculation of the iteration number
+            outputFile_ << " " << iternubr;
+            outputFile_.close();
         }
-        //GasPlumeDist=0
-        else
-        {
-            Xi = 0.0;
-        }
-        gasPlumeDist = Xi;
+
+        return gasPlumeDist;
     }
-
-    return gasPlumeDist;
-}
 
 /*! \brief Calculates integral of difference of wetting saturation over z
  *
@@ -912,6 +1149,46 @@ Scalar calculateErrorSatIntegral(Scalar lowerBound, Scalar upperBound, Scalar sa
 
     return satIntegral;
 }
+/*! \brief Calculates integral of difference of relative permeability over z
+ *
+ */
+    Scalar calculateErrorKrwIntegral(Scalar lowerBound, Scalar upperBound, Scalar satW, Scalar gasPlumeDist)
+    {
+        int intervalNumber = 10;
+        Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
+
+        Scalar krwIntegral = 0.0;
+        for(int count=0; count<intervalNumber; count++ )
+        {
+            Scalar sat1 = reconstSaturation(lowerBound + count*deltaZ, gasPlumeDist);
+            Scalar sat2 = reconstSaturation(lowerBound + (count+1)*deltaZ, gasPlumeDist);
+            Scalar krw1 = MaterialLaw::krw(this->spatialParams().materialLawParams(dummy_), sat1);
+            Scalar krw2 = MaterialLaw::krw(this->spatialParams().materialLawParams(dummy_), sat2);
+            Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(dummy_), satW);
+            krwIntegral += std::abs((krw1 + krw2)/2.0 - krw);
+        }
+        krwIntegral = krwIntegral * deltaZ;
+
+        return krwIntegral;
+    }
+
+/*! \brief Calculates integral of difference of relative Pressure over z
+*
+*/
+    Scalar calculateErrorPresIntegral(Scalar lowerBound, Scalar upperBound, Scalar PresW, Element veElement)
+    {
+        int intervalNumber = 10;
+        Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
+
+        Scalar PresIntegral = 0.0;
+        for(int count=0; count<intervalNumber; count++ )
+        {
+            PresIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, veElement) + reconstPressureW(lowerBound + (count+1)*deltaZ,veElement))/2.0 - PresW);
+        }
+        PresIntegral = PresIntegral * deltaZ;
+
+        return PresIntegral;
+    }
 
 /*! \brief Calculates gasPlumeDist, distance of gas plume from bottom
  *
@@ -953,6 +1230,16 @@ Scalar reconstSaturation(Scalar height, Scalar gasPlumeDist)
 
     return reconstSaturation;
 }
+/*! \brief Calculation of the reconstructed pressure
+ *
+ *
+ */
+    Scalar reconstPressureW(Scalar height,Element veElement)
+    {
+        Scalar recPressurw = this->pressureModel().reconstPressure(height,  wPhaseIdx,  veElement);
+
+        return recPressurw;
+    }
 
 /*!
  *
@@ -1124,6 +1411,20 @@ Scalar averageSatInPlume_;
 Element dummy_;
 Scalar CTZ_;
 std::vector<int> modelVector_;
+
+Scalar segTime_;
+int numberOfColumns_;
+Scalar density_[numPhases];
+Scalar viscosity_[numPhases];
+std::vector<Scalar> gasPlumeDist_temps;
+std::chrono::_V2::system_clock::time_point  beginCPU;
+std::chrono::_V2::system_clock::time_point  endCPU;
+std::enable_if<true, std::chrono::duration<long int, std::ratio<1, 1000000000> > >::type  elapsedCPU;
+std::chrono::_V2::system_clock::time_point  beginTC;
+std::chrono::_V2::system_clock::time_point  endTC;
+std::enable_if<true, std::chrono::duration<long int, std::ratio<1, 1000000000> > >::type  elapsedTC;
+std::vector<Scalar> indicatorVector_;
+
 };
 } //end namespace
 
