@@ -1259,7 +1259,7 @@ namespace Dumux {
       outputFile_.open("errorRelPermNorm.out", std::ios::app);
       outputFile_ << " " << std::endl;
       outputFile_.close();
-      outputFile_.open("errorPres.out", std::ios::app);
+      outputFile_.open("errorPress.out", std::ios::app);
       outputFile_ << " " << std::endl;
       outputFile_.close();
       outputFile_.open("errorPressNorm.out", std::ios::app);
