@@ -9,13 +9,13 @@
 ###############################################################
 
 [TimeManager]
-TEnd = 6.88e5 # [s]
+TEnd = 8.64e5 # [s]
 DtInitial = 10 # [s]
 
 [Grid]
 UpperRight = 350 30
 LowerLeft = 0 0
-Cells = 350 128
+Cells = 350 32
 
 ClosureType = None
 

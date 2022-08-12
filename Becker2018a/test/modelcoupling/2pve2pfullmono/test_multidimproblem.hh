@@ -189,13 +189,13 @@ enum
     swIdx = Indices::swIdx,
     eqIdxPress = Indices::pressureEqIdx,
     eqIdxSat = Indices::satEqIdx
+
 };
 
 enum VEModel
 {
     sharpInterface,
-    capillaryFringe,
-    numPhases = GET_PROP_VALUE(TypeTag, NumPhases)
+    capillaryFringe
 };
 
 typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
@@ -239,36 +239,7 @@ debugWriter_(GridCreator::grid().leafGridView(), "debugGridAfterAdaptation"), no
 
     updateColumnMap();
 
-//    //calculate segregation time
-//        // iterate over all elements
-//    int j = 0;
-//    for (const auto& element : Dune::elements(this->gridView()))
-//    {
-//        // identify column number
-//        GlobalPosition globalPos = element.geometry().center();
-//        CellArray numberOfCellsX = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
-//        double deltaX = this->bBoxMax()[0]/numberOfCellsX[0];
-//
-//        j = round((globalPos[0] - (deltaX/2.0))/deltaX);
-//
-//        mapAllColumns_.insert(std::make_pair(j, element));
-//        dummy_ = element;
-//    }
-//
-//    numberOfColumns_ = j;
-//    GlobalPosition globalPos = dummy_.geometry().center();
-//    //GlobalPosition globalPos = element.geometry().center();
-//    Scalar pRef = referencePressureAtPos(globalPos);
-//    Scalar tempRef = temperatureAtPos(globalPos);
-//    Scalar densityW = WettingPhase::density(tempRef, pRef);
-//    Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
-//    Scalar height = this->bBoxMax()[dim-1];
-//    Scalar porosity = this->spatialParams().porosity(dummy_);
-//    Scalar viscosityW = WettingPhase::viscosity(tempRef, pRef);
-//    Scalar permeability = this->spatialParams().intrinsicPermeability(dummy_);
-//    Scalar gravity = this->gravity().two_norm();
-//    segTime_ = (height*porosity*viscosityW)/(permeability*gravity*(densityW-densityNw));
-    segTime_=48*36000;
+
     //calculate length of capillary transition zone (CTZ)
     Scalar swr = this->spatialParams().materialLawParams(dummy_).swr();
     Scalar snr = this->spatialParams().materialLawParams(dummy_).snr();
@@ -283,6 +254,14 @@ debugWriter_(GridCreator::grid().leafGridView(), "debugGridAfterAdaptation"), no
     Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
     CTZ_ = (pc2-pc1)/((densityW-densityNw)*this->gravity().two_norm());
     std::cout << "CTZ " << CTZ_ << std::endl;
+
+    //calculate segregation time
+    Scalar height = this->bBoxMax()[dim-1];
+    Scalar porosity = this->spatialParams().porosity(dummy_);
+    Scalar viscosityW = WettingPhase::viscosity(tempRef, pRef);
+    Scalar permeability = this->spatialParams().intrinsicPermeability(dummy_);
+    Scalar gravity = this->gravity().two_norm();
+    segTime_ = (height*porosity*viscosityW)/(permeability*gravity*(densityW-densityNw));
 
     CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
     int numberOfColumns = numberOfCells[0];
@@ -382,7 +361,7 @@ void init()
     if(plotFluidMatrixInteractions)
         this->spatialParams().plotMaterialLaw();
 
-    //for the initialization of xi in gasplummdist
+    //for the initialization of xi in gasPlumeDist
     Scalar domainHeight = this->bBoxMax()[dim - 1];
     gasPlumeDist_temps.resize(numberOfColumns_);
     for (int i = 0; i < numberOfColumns_; i++)
@@ -398,17 +377,17 @@ void postTimeStep()
     elapsedCPU = std::chrono::duration_cast<std::chrono::nanoseconds>(endCPU - beginCPU);// for the calculation of the time of computation
     beginTC = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation of criterion
 
-//    outputFile_.open("errorSat_abs.out", std::ios::app);
-//    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
-//    outputFile_.close();
+    outputFile_.open("errorSat_abs.out", std::ios::app);
+    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
+    outputFile_.close();
 
 //    outputFile_.open("errorPerm_abs.out", std::ios::app);
 //    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
 //    outputFile_.close();
 
-    outputFile_.open("errorPressure_abs.out", std::ios::app);
-    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
-    outputFile_.close();
+//    outputFile_.open("errorPressure_abs.out", std::ios::app);
+//    outputFile_ << this->timeManager().time()/segTime_ ;//<< std::endl;//<<this->timeManager().time()/segTime_
+//    outputFile_.close();
 
     outputFile_.open("elapsed_xi_ch.out", std::ios::app);
     outputFile_ <<  this->timeManager().time()/segTime_ ;
@@ -788,7 +767,7 @@ void postTimeStep()
 //
 
 /*!
- * \brief CALCULATION OF THR CRITERION
+ * \brief CALCULATION OF THE CRITERION
  *
  *
  *
@@ -810,27 +789,124 @@ void postTimeStep()
     int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
     std::multimap<int, Element> mapAllColumns = this->getColumnMap();
     for(int i=0;i<numberOfColumns;i++) {
-        if (i < 4)//never have VE in the first four columns
-        {
-            indicatorVector_[i] = 2;
-            outputFile_.open("errorPressure_abs.out", std::ios::app);
-            outputFile_ << " " << indicatorVector_[i];
-            outputFile_.close();
-            continue;
-        }
-        int columnModel = modelVector_[i];
-        if (columnModel == 0 || columnModel == 1) {
-            outputFile_.open("errorPressure_abs.out", std::ios::app);
-            outputFile_ << " " << indicatorVector_[i];
-            outputFile_.close();
-            continue;
-        }
 
         typename std::map<int, Element>::iterator it = mapAllColumns.lower_bound(i);
         // for the initiation of the 1er term of iteration
         Scalar gasPlumeDist_arg = gasPlumeDist_temps[i];
         Scalar gasPlumeDist = calculateGasPlumeDist(it->second, averageSatColumn[i], gasPlumeDist_arg);
         gasPlumeDist_temps[i] = gasPlumeDist;//domainHeight / 2.0;
+
+        if (i < 4)//never have VE in the first four columns
+        {
+            indicatorVector_[i] = 2;
+
+            outputFile_.open("errorSat_abs.out", std::ios::app);
+            outputFile_ << indicatorVector_[i];
+            outputFile_.close();
+
+//          outputFile_.open("errorPerm_abs.out", std::ios::app);
+//          outputFile_ << indicatorVector_[i];
+//          outputFile_.close();
+
+//            outputFile_.open("errorPressure_abs.out", std::ios::app);
+//            outputFile_ << " " << indicatorVector_[i];
+//            outputFile_.close();
+
+            if((this->timeManager().time() >= 863789  && markeur < 350 ))
+            {
+                markeur += 1;
+                if ((i == 0))//to have only 1 time z
+                {
+                    //iterate over cells in column and write z-location
+                    CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
+                    zCenter_.resize(32);
+                    int k = 0;
+                    for (; it != mapAllColumns.upper_bound(i); ++it) {
+                        GlobalPosition globalPos = (it->second).geometry().center();
+                        Scalar z1 = globalPos[dim - 1];
+                        outputFile_.open("satProfiles.out", std::ios::app);
+                        outputFile_ << " " << z1;
+                        outputFile_.close();
+                        outputFile_.open("relPermProfiles.out", std::ios::app);
+                        outputFile_ << " " << z1;
+                        outputFile_.close();
+
+                        zCenter_[k] = z1;
+                        k += 1;
+                    }
+                }
+
+                //next line
+                outputFile_.open("satProfiles.out", std::ios::app);
+                outputFile_ << " " << std::endl;
+                outputFile_.close();
+                outputFile_.open("relPermProfiles.out", std::ios::app);
+                outputFile_ << " " << std::endl;
+                outputFile_.close();
+
+                //iterate over cells in column and write satW and krw
+                typename std::map<int, Element>::iterator it2 = mapAllColumns.lower_bound(i);
+                for (; it2 != mapAllColumns.upper_bound(i); ++it2) {
+                    int globalIdxI = this->variables().index(it2->second);
+                    Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
+                    Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
+
+                    outputFile_.open("satProfiles.out", std::ios::app);
+                    outputFile_ << " " << satW;
+                    outputFile_.close();
+                    outputFile_.open("relPermProfiles.out", std::ios::app);
+                    outputFile_ << " " << krw;
+                    outputFile_.close();
+                }
+            }
+
+            continue;
+        }
+        int columnModel = modelVector_[i];
+        if (columnModel == 0 || columnModel == 1) {
+            outputFile_.open("errorSat_abs.out", std::ios::app);
+            outputFile_ << indicatorVector_[i];
+            outputFile_.close();
+
+//          outputFile_.open("errorPerm_abs.out", std::ios::app);
+//          outputFile_ << indicatorVector_[i];
+//          outputFile_.close();
+
+//            outputFile_.open("errorPressure_abs.out", std::ios::app);
+//            outputFile_ << " " << indicatorVector_[i];
+//            outputFile_.close();
+
+
+                if((this->timeManager().time() >= 863789 && markeur < 350 ))
+                {
+                    markeur+=1;
+
+                    //next line
+                    outputFile_.open("satProfiles.out", std::ios::app);
+                    outputFile_ << " " << std::endl;
+                    outputFile_.close();
+                    outputFile_.open("relPermProfiles.out", std::ios::app);
+                    outputFile_ << " " << std::endl;
+                    outputFile_.close();
+
+                    //iterate over cells in column and write satW and krw
+                    CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
+                    for (int k = 0; k < 32; ++k) {
+                        Scalar satW = reconstSaturation(zCenter_[k],gasPlumeDist);
+                        Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it->second), satW);
+
+                        outputFile_.open("satProfiles.out", std::ios::app);
+                        outputFile_ << " " << satW;
+                        outputFile_.close();
+                        outputFile_.open("relPermProfiles.out", std::ios::app);
+                        outputFile_ << " " << krw;
+                        outputFile_.close();
+                    }
+                }
+            continue;
+        }
+
+
 
         Scalar errorSat = 0.0;
         Scalar errorRelPerm = 0.0;
@@ -878,34 +954,34 @@ void postTimeStep()
                 } else if (bottom >= gasPlumeDist) {
                     errorSat +=calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
                     errorRelPerm += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
-                    errorPressurew += (1 / PresW) * calculateErrorPresIntegral(bottom, top, PresW,veElement);
+                    //errorPressurew += (1 / PresW) * calculateErrorPresIntegral(bottom, top, PresW,veElement);
 
                 } else {
                     Scalar lowerDelta = gasPlumeDist - bottom;
                     Scalar upperDelta = top - gasPlumeDist;
                     errorSat += std::abs(lowerDelta * (satW - 1.0)) +calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
                     errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) +calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-                    errorPressurew += (1 / PresW) * calculateErrorPresIntegral(gasPlumeDist, top, PresW,veElement);
+                    //errorPressurew += (1 / PresW) * calculateErrorPresIntegral(gasPlumeDist, top, PresW,veElement);
                 }
             }
 
         }
 
-        //indicatorVector_[i] = errorSat / (domainHeight - gasPlumeDist);
+        indicatorVector_[i] = errorSat / (domainHeight - gasPlumeDist);
         //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
-        indicatorVector_[i] =  errorPressurew / (domainHeight - gasPlumeDist);
+        //indicatorVector_[i] =  errorPressurew / (domainHeight - gasPlumeDist);
+
+    outputFile_.open("errorSat_abs.out", std::ios::app);
+    outputFile_ << indicatorVector_[i];
+    outputFile_.close();
 
 //    outputFile_.open("errorPerm_abs.out", std::ios::app);
-//    outputFile_ << " " << indicatorVector_[i];
-//    outputFile_.close();
-//
-//    outputFile_.open("errorPerm_abs.out", std::ios::app);
-//    outputFile_ << " " << indicatorVector_[i];
+//    outputFile_ << indicatorVector_[i];
 //    outputFile_.close();
 
-        outputFile_.open("errorPressure_abs.out", std::ios::app);
-        outputFile_ << " " << indicatorVector_[i];
-        outputFile_.close();
+//        outputFile_.open("errorPressure_abs.out", std::ios::app);
+//        outputFile_ << " " << indicatorVector_[i];
+//        outputFile_.close();
     }
 
 //    outputFile_.open("errorPerm_abs.out", std::ios::app);
@@ -916,9 +992,17 @@ void postTimeStep()
 //    outputFile_ << " " << std::endl;
 //    outputFile_.close();
 //
-    outputFile_.open("errorPressure_abs.out", std::ios::app);
+    outputFile_.open("errorSat_abs.out", std::ios::app);
     outputFile_ << " " << std::endl;
     outputFile_.close();
+
+//    outputFile_.open("errorPerm_abs.out", std::ios::app);
+//    outputFile_ << indicatorVector_[i];
+//    outputFile_.close();
+
+//    outputFile_.open("errorPressure_abs.out", std::ios::app);
+//    outputFile_ << " " << std::endl;
+//    outputFile_.close();
 
     outputFile_.open("time.out", std::ios::app);
     outputFile_ <<this->timeManager().time()/segTime_<< " " << std::endl;
@@ -1414,8 +1498,6 @@ std::vector<int> modelVector_;
 
 Scalar segTime_;
 int numberOfColumns_;
-Scalar density_[numPhases];
-Scalar viscosity_[numPhases];
 std::vector<Scalar> gasPlumeDist_temps;
 std::chrono::_V2::system_clock::time_point  beginCPU;
 std::chrono::_V2::system_clock::time_point  endCPU;
@@ -1424,6 +1506,8 @@ std::chrono::_V2::system_clock::time_point  beginTC;
 std::chrono::_V2::system_clock::time_point  endTC;
 std::enable_if<true, std::chrono::duration<long int, std::ratio<1, 1000000000> > >::type  elapsedTC;
 std::vector<Scalar> indicatorVector_;
+int markeur;
+std::vector<Scalar> zCenter_;
 
 };
 } //end namespace

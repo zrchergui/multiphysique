@@ -191,9 +191,9 @@ public:
                     }
                 }
             }
-            //indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
+            indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
             //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
-            indicatorVector_[i] =  errorPressurew / (domainHeight - gasPlumeDist);
+            //indicatorVector_[i] =  errorPressurew / (domainHeight - gasPlumeDist);
         }
         Scalar absoluteError = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, GridAdapt, AbsoluteError);
         refineBound_ = 1.05 * absoluteError;
@@ -581,7 +581,9 @@ public:
         {
             CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
             int numberOfColumns = numberOfCells[0];
-            std::ofstream file("criterion_test_Pression.txt",std::ios ::app);
+            std::ofstream file("criterion_test_Saturation.txt",std::ios ::app);
+            //std::ofstream file("criterion_test_Pressure.txt",std::ios ::app);
+            //std::ofstream file("criterion_test_Permeability.txt",std::ios ::app);
 
             if(file.is_open())
             {

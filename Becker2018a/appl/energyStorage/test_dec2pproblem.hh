@@ -259,10 +259,10 @@ public:
 //        outputFile_.close();
 //        outputFile_.open("errorNumSat.out", std::ios::trunc);
 //        outputFile_.close();
-//        outputFile_.open("satProfiles.out", std::ios::trunc);
-//        outputFile_.close();
-//        outputFile_.open("relPermProfiles.out", std::ios::trunc);
-//        outputFile_.close();
+        outputFile_.open("satProfiles.out", std::ios::trunc);
+        outputFile_.close();
+        outputFile_.open("relPermProfiles.out", std::ios::trunc);
+        outputFile_.close();
 //        outputFile_.open("averageSatColumn.out", std::ios::trunc);
 //        outputFile_.close();
 //        outputFile_.open("averageSatPlume.out", std::ios::trunc);
@@ -288,6 +288,17 @@ public:
         // plot the Pc-Sw curves, if requested
         if(plotFluidMatrixInteractions)
             this->spatialParams().plotMaterialLaw();
+
+        Scalar domainHeight = this->bBoxMax()[dim - 1];
+        gasPlumeDist_temps.resize(numberOfColumns_);
+        //for the initialization of xi in gasplummdist
+        for (int i = 0; i < numberOfColumns_; i++)
+        {
+            gasPlumeDist_temps[i] = domainHeight / 2.0;
+        }
+        markeur = 0;
+
+        beginCPU = std::chrono::high_resolution_clock::now();
     }
 
     /*!
@@ -398,6 +409,11 @@ public:
 
      void postTimeStep()
      {
+         endCPU = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation
+         elapsedCPU = std::chrono::duration_cast<std::chrono::nanoseconds>(endCPU - beginCPU);// for the calculation of the time of computation
+         beginTC = std::chrono::high_resolution_clock::now();// for the calculation of the time of computation of criterion
+
+
          ParentType::postTimeStep();
 
 //         //refine grid for error norm calculation
@@ -500,125 +516,172 @@ public:
 //             GridCreator::grid().preAdapt();
 //         }
 //
-//         Scalar averageSatColumn[numberOfColumns_];
-// //        Scalar averageSatPlume[numberOfColumns_];
-//         Scalar errorSat[numberOfColumns_];
-// //        Scalar errorNumSat[numberOfColumns_];
-//         Scalar errorRelPerm[numberOfColumns_];
+
+         outputFile_.open("errorSat_nrml.out", std::ios::app);
+         outputFile_ << " " << this->timeManager().time()/segTime_;
+         outputFile_.close();
+
+         outputFile_.open("errorRelPerm_nrml.out", std::ios::app);
+         outputFile_ << " " << this->timeManager().time()/segTime_;
+         outputFile_.close();
+
+         outputFile_.open("errorPres.out", std::ios::app);
+         outputFile_ << " " << this->timeManager().time()/segTime_;
+         outputFile_.close();
+
+         outputFile_.open("errorPres_nrml.out", std::ios::app);
+         outputFile_ << " " << this->timeManager().time()/segTime_;
+         outputFile_.close();
+
+         outputFile_.open("Zp.out", std::ios::app);
+         outputFile_ << " " << this->timeManager().time()/segTime_;
+         outputFile_.close();
+
+         outputFile_.open("elapsed_nv_init.out", std::ios::app);
+         outputFile_ <<  this->timeManager().time()/segTime_ ;
+         outputFile_.close();
+
+         outputFile_.open("iternubr1_nv_init.out", std::ios::app);
+         outputFile_ <<  this->timeManager().time()/segTime_ ;
+         outputFile_.close();
+
+         Scalar averageSatColumn[numberOfColumns_];
+         Scalar averageSatPlume[numberOfColumns_];
+         Scalar errorSat[numberOfColumns_];
+         Scalar errorNumSat[numberOfColumns_];
+         Scalar errorRelPerm[numberOfColumns_];
+         Scalar errorPressurew[numberOfColumns_];
+         Scalar errorPressurew2[numberOfColumns_];
 //         Scalar velocityWVerticalMax[numberOfColumns_];
 //         Scalar velocityWVerticalMaxTotal;
-//         //initialize/reset average column saturation
-//         for (int i = 0; i < numberOfColumns_; i++)
-//         {
-//             averageSatColumn[i] = 0.0;
-// //            averageSatPlume[i] = 0.0;
-//             errorSat[i] = 0.0;
-// //            errorNumSat[i] = 0.0;
-//             errorRelPerm[i] = 0.0;
+
+         //initialize/reset average column saturation
+
+         for (int i = 0; i < numberOfColumns_; i++)
+         {
+             averageSatColumn[i] = 0.0;
+             //            averageSatPlume[i] = 0.0;
+             errorSat[i] = 0.0;
+             //            errorNumSat[i] = 0.0;
+             errorRelPerm[i] = 0.0;
 //             velocityWVerticalMax[i] = 0.0;
 //             velocityWVerticalMaxTotal = 0.0;
-//         }
-// //        Scalar averageSatTotal = 0.0;
-// //        Scalar gasPlumeVolume = 0.0;// volume of gas plume
-//         for (int i = 0; i != numberOfColumns_; ++i)
-//         {
-//             Scalar totalVolume = 0.0;// total volume of column
-//             Scalar gasVolume = 0.0;// volume with SatN>0.0 in one column;
-//             typename std::map<int, Element>::iterator it = mapColumns_.lower_bound(i);
-//             for (; it != mapColumns_.upper_bound(i); ++it)
-//             {
-//                 int globalIdxI = this->variables().index(it->second);
-//                 Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
-//                 Scalar satNw = this->variables().cellData(globalIdxI).saturation(nPhaseIdx);
-//                 Scalar volume = it->second.geometry().volume();
-//                 averageSatColumn[i] += satW * volume;
-//                 totalVolume += volume;
-// //                if(satNw>0.0)
-// //                {
-// //                    averageSatPlume[i] += satW * volume;
-// //                    gasVolume += volume;
-// //                    averageSatTotal += satW * volume;
-// //                    gasPlumeVolume += volume;
-// //                }
-//             }
-//             averageSatColumn[i] = averageSatColumn[i]/totalVolume;//average wetting saturation in column (equals gasPlumeDist for SI and no compressibility)
-// //            averageSatPlume[i] = averageSatPlume[i]/gasVolume;//average wetting saturation in plume
-//
-// //            outputFile_.open("averageSatColumn.out", std::ios::app);
-// //            outputFile_ << " " << averageSatColumn[i];
-// //            outputFile_.close();
-//
-// //            outputFile_.open("averageSatPlume.out", std::ios::app);
-// //            outputFile_ << " " << averageSatPlume[i];
-// //            outputFile_.close();
-//
-//             Scalar domainHeight = this->bBoxMax()[dim - 1];
-//             CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
-//             double deltaZ = domainHeight/numberOfCells[dim - 1];
-//             Scalar resSatW = this->spatialParams().materialLawParams(it->second).swr();
-//
-//             Scalar gasPlumeDist = calculateGasPlumeDist(dummy_, averageSatColumn[i]);
-//
-//             //calculate error to VE situation
-//             it = mapColumns_.lower_bound(i);
-//             for (; it != mapColumns_.upper_bound(i); ++it)
-//             {
-//                 Element element = it->second;
-//                 int globalIdxI = this->variables().index(element);
-//                 GlobalPosition globalPos = (it->second).geometry().center();
-//                 Scalar top = globalPos[dim - 1] + deltaZ/2.0;
-//                 Scalar bottom = globalPos[dim - 1] - deltaZ/2.0;
-//
-//                 Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
-//                 Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(element), satW);
-//
-//                 if(veModel_ == 0)//calculate error for VE model
-//                 {
-//                     if (top <= gasPlumeDist)
-//                     {
-//                         errorSat[i] += std::abs(deltaZ * (satW - 1.0));
-// //                        errorNumSat[i] += std::abs(deltaZ * (satW - 1.0));
-//                         errorRelPerm[i] += std::abs(deltaZ * (krw - 1.0));
-//                     }
-//                     else if (bottom >= gasPlumeDist)
-//                     {
-//                         errorSat[i] += std::abs(deltaZ * (satW - resSatW));
-// //                        errorNumSat[i] += std::abs(deltaZ * (satW - resSatW));
-//                         errorRelPerm[i] += std::abs(deltaZ * (krw - 0.0));
-//                     }
-//                     else
-//                     {
-//                         Scalar lowerDelta = gasPlumeDist - bottom;
-//                         Scalar upperDelta = top - gasPlumeDist;
-//                         errorSat[i] += std::abs(lowerDelta * (satW - 1.0)) + std::abs(upperDelta * (satW - resSatW));
-// //                        errorNumSat[i] += std::abs(deltaZ * satW - lowerDelta);
-//                         errorRelPerm[i] += std::abs(lowerDelta * (krw - 1.0)) + std::abs(upperDelta * (krw - 0.0));
-//                     }
-//                 }
-//                 if(veModel_ == 1)//calculate error for capillary fringe model
-//                 {
-//                     if (top <= gasPlumeDist)
-//                     {
-//                         errorSat[i] += std::abs(deltaZ * (satW - 1.0));
-// //                        errorNumSat[i] += std::abs(deltaZ * (satW - 1.0));
-//                         errorRelPerm[i] += std::abs(deltaZ * (krw - 1.0));
-//                     }
-//                     else if (bottom >= gasPlumeDist)
-//                     {
-//                         errorSat[i] += calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
-// //                        errorNumSat[i] += std::abs(deltaZ * satW - calculateSatIntegral(bottom, top, gasPlumeDist));
-//                         errorRelPerm[i] += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
-//                     }
-//                     else
-//                     {
-//                         Scalar lowerDelta = gasPlumeDist - bottom;
-//                         Scalar upperDelta = top - gasPlumeDist;
-//                         errorSat[i] += std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-// //                        errorNumSat[i] += std::abs(deltaZ * satW - (calculateSatIntegral(gasPlumeDist, top, gasPlumeDist) + lowerDelta));
-//                         errorRelPerm[i] += std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-//                     }
-//                 }
-//
+             errorPressurew[i]=0.0;
+             errorPressurew2[i]=0.0;
+         }
+         Scalar averageSatTotal = 0.0;
+         Scalar gasPlumeVolume = 0.0;// volume of gas plume
+         for (int i = 0; i != numberOfColumns_; ++i)
+         {
+             Scalar totalVolume = 0.0;// total volume of column
+             Scalar gasVolume = 0.0;// volume with SatN>0.0 in one column;
+             typename std::map<int, Element>::iterator it = mapColumns_.lower_bound(i);
+             for (; it != mapColumns_.upper_bound(i); ++it)
+             {
+                 int globalIdxI = this->variables().index(it->second);
+                 Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
+                 Scalar satNw = this->variables().cellData(globalIdxI).saturation(nPhaseIdx);
+                 Scalar volume = it->second.geometry().volume();
+                 averageSatColumn[i] += satW * volume;
+                 totalVolume += volume;
+                 if(satNw>0.0)
+                 {
+                     averageSatPlume[i] += satW * volume;
+                     gasVolume += volume;
+                     averageSatTotal += satW * volume;
+                     gasPlumeVolume += volume;
+                 }
+             }
+             averageSatColumn[i] = averageSatColumn[i]/totalVolume;//average wetting saturation in column (equals gasPlumeDist for SI and no compressibility)
+             averageSatPlume[i] = averageSatPlume[i]/gasVolume;//average wetting saturation in plume
+
+             //            outputFile_.open("averageSatColumn.out", std::ios::app);
+             //            outputFile_ << " " << averageSatColumn[i];
+             //            outputFile_.close();
+
+             //            outputFile_.open("averageSatPlume.out", std::ios::app);
+             //            outputFile_ << " " << averageSatPlume[i];
+             //            outputFile_.close();
+
+             Scalar domainHeight = this->bBoxMax()[dim - 1];
+             CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
+             double deltaZ = domainHeight/numberOfCells[dim - 1];
+             Scalar resSatW = this->spatialParams().materialLawParams(it->second).swr();
+
+             // for the initiation of the 1er term of iteration
+             Scalar gasPlumeDist_arg = gasPlumeDist_temps[i];
+             Scalar gasPlumeDist = calculateGasPlumeDist(dummy_, averageSatColumn[i],gasPlumeDist_arg);
+             gasPlumeDist_temps[i]=gasPlumeDist;//domainHeight / 2.0;
+
+             //calculate error to VE situation
+             it = mapColumns_.lower_bound(i);
+             int globalIdxILower = this->variables().index(it->second);
+             Scalar coarsePresw = this->variables().cellData(globalIdxILower).pressure(wPhaseIdx);
+             Element veElement = mapColumns_.find(i)->second;
+             for (; it != mapColumns_.upper_bound(i); ++it)
+             {
+                 Element element = it->second;
+                 int globalIdxI = this->variables().index(element);
+                 GlobalPosition globalPos = (it->second).geometry().center();
+                 Scalar top = globalPos[dim - 1] + deltaZ/2.0;
+                 Scalar bottom = globalPos[dim - 1] - deltaZ/2.0;
+
+                 Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
+                 Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(element), satW);
+                 Scalar PresW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+
+                 if(veModel_ == 0)//calculate error for VE model
+                 {
+                     if (top <= gasPlumeDist)
+                     {
+                         errorSat[i] += std::abs(deltaZ * (satW - 1.0));
+                         //                        errorNumSat[i] += std::abs(deltaZ * (satW - 1.0));
+                         errorRelPerm[i] += std::abs(deltaZ * (krw - 1.0));
+                     }
+                     else if (bottom >= gasPlumeDist)
+                     {
+                         errorSat[i] += std::abs(deltaZ * (satW - resSatW));
+                         //                        errorNumSat[i] += std::abs(deltaZ * (satW - resSatW));
+                         errorRelPerm[i] += std::abs(deltaZ * (krw - 0.0));
+                     }
+                     else
+                     {
+                         Scalar lowerDelta = gasPlumeDist - bottom;
+                         Scalar upperDelta = top - gasPlumeDist;
+                         errorSat[i] += std::abs(lowerDelta * (satW - 1.0)) + std::abs(upperDelta * (satW - resSatW));
+                         //                        errorNumSat[i] += std::abs(deltaZ * satW - lowerDelta);
+                         errorRelPerm[i] += std::abs(lowerDelta * (krw - 1.0)) + std::abs(upperDelta * (krw - 0.0));
+                     }
+                 }
+                 if(veModel_ == 1)//calculate error for capillary fringe model///////////////////////////////////////////////////////////////////////////////////
+                 {
+                     if (top <= gasPlumeDist)
+                     {
+                         errorSat[i] +=(1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
+                         //                        errorNumSat[i] += std::abs(deltaZ * (satW - 1.0));
+                         errorRelPerm[i] += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
+                     }
+                     else if (bottom >= gasPlumeDist)
+                     {
+                         errorSat[i] +=(1/satW) * ( calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist) );
+                         //                        errorNumSat[i] += std::abs(deltaZ * satW - calculateSatIntegral(bottom, top, gasPlumeDist));
+                         errorRelPerm[i] +=(1/krw)*( calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist) );
+                         errorPressurew[i] += calculateErrorPresIntegral(bottom, top, PresW,gasPlumeDist,veElement);
+                         errorPressurew2[i]+= (1/PresW)*calculateErrorPresIntegral(bottom, top, PresW,gasPlumeDist,veElement);
+                     }
+                     else
+                     {
+                         Scalar lowerDelta = gasPlumeDist - bottom;
+                         Scalar upperDelta = top - gasPlumeDist;
+                         errorSat[i] += (1/satW)* ( std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
+                         //                        errorNumSat[i] += std::abs(deltaZ * satW - (calculateSatIntegral(gasPlumeDist, top, gasPlumeDist) + lowerDelta));
+                         errorRelPerm[i] +=(1/krw)* ( std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist) );/////////////////
+
+                         errorPressurew[i] += calculateErrorPresIntegral(gasPlumeDist, top, PresW,gasPlumeDist, veElement);
+                         errorPressurew2[i]+= (1/PresW)*calculateErrorPresIntegral(gasPlumeDist, top, PresW,gasPlumeDist,veElement);
+                     }
+                 }
+
 //                 //calculate velocity criterion
 //                 for (const auto& intersection : intersections(this->gridView(), element))
 //                 {
@@ -630,226 +693,284 @@ public:
 //                     velocityWVerticalMax[i] = std::max(velocityWVerticalMax[i], std::abs(velocityW.two_norm()));
 //                     velocityWVerticalMaxTotal = std::max(velocityWVerticalMaxTotal, velocityWVerticalMax[i]);
 //                 }
-//             }
+             }
 //
-// //            errorSat[i] = errorSat[i]/(domainHeight*deltaZ);
-// //            errorNumSat[i] = errorNumSat[i]/domainHeight;
-//             errorSat[i] = errorSat[i]/(domainHeight-gasPlumeDist);
-// //            errorNumSat[i] = errorNumSat[i]/(domainHeight-gasPlumeDist);
-//             errorRelPerm[i] = errorRelPerm[i]/(domainHeight-gasPlumeDist);
-//             if(averageSatColumn[i]>1.0-eps_)
-//             {
-//                 errorSat[i] = 0.0;
-//                 errorRelPerm[i] = 0.0;
-// //                errorNumSat[i] = 0.0;
-//                 velocityWVerticalMax[i] = 0.0;
-//             }
-//
-//             if(i == 19)
-//             {
-// //                Scalar errorSatb = errorRelPerm[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
-// //                Scalar errorSatc = errorRelPerm[i]/(domainHeight);
-// //                Scalar errorSatd = errorRelPerm[i]/(domainHeight*deltaZ/CTZ_);
-// //                Scalar errorSatf = errorSat[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
-// //                Scalar errorSatg = errorSat[i]/(domainHeight);
-// //                Scalar errorSath = errorSat[i]/(domainHeight*deltaZ/CTZ_);
-//
-//                 outputFile_.open("errorTimeRelPerm20.out", std::ios::app);
-//                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorRelPerm[i] << std::endl;
-//                 outputFile_.close();
-//
-// //                outputFile_.open("errorTimeSat9b.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatb << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat9c.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatc << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat9d.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatd << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSat << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat9f.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatf << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat9g.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatg << std::endl;
-// //                outputFile_.close();
-//
-//                 outputFile_.open("errorTimeSat20.out", std::ios::app);
-//                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorSat[i] << std::endl;
-//                 outputFile_.close();
-//
-//                 outputFile_.open("errorTimeVel20.out", std::ios::app);
-//                 outputFile_ << this->timeManager().time()/segTime_ << " " << velocityWVerticalMax[i] << std::endl;
-//                 outputFile_.close();
-//             }
-//
-//             if(i == 199)
-//             {
-// //                Scalar errorSatb = errorRelPerm[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
-// //                Scalar errorSatc = errorRelPerm[i]/(domainHeight);
-// //                Scalar errorSatd = errorRelPerm[i]/(domainHeight*deltaZ/CTZ_);
-// //                Scalar errorSatf = errorSat[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
-// //                Scalar errorSatg = errorSat[i]/(domainHeight);
-// //                Scalar errorSath = errorSat[i]/(domainHeight*deltaZ/CTZ_);
-//
-//                 outputFile_.open("errorTimeRelPerm200.out", std::ios::app);
-//                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorRelPerm[i] << std::endl;
-//                 outputFile_.close();
-//
-// //                outputFile_.open("errorTimeSat99b.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatb << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat99c.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatc << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat99d.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatd << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat99e.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSate << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat99f.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatf << std::endl;
-// //                outputFile_.close();
-// //
-// //                outputFile_.open("errorTimeSat99g.out", std::ios::app);
-// //                outputFile_ << this->timeManager().time() << " " << errorSatg << std::endl;
-// //                outputFile_.close();
-//
-//                 outputFile_.open("errorTimeSat200.out", std::ios::app);
-//                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorSat[i] << std::endl;
-//                 outputFile_.close();
-//
+             //            errorSat[i] = errorSat[i]/(domainHeight*deltaZ);
+             //            errorNumSat[i] = errorNumSat[i]/domainHeight;
+             errorSat[i] = errorSat[i]/(domainHeight-gasPlumeDist);
+             //            errorNumSat[i] = errorNumSat[i]/(domainHeight-gasPlumeDist);
+             errorRelPerm[i] = errorRelPerm[i]/(domainHeight-gasPlumeDist);
+
+             //errorSat[i] = errorSat[i]/satW;
+             //errorRelPerm[i] = errorRelPerm[i]/krw;
+
+             errorPressurew[i] = errorPressurew[i]/(domainHeight-gasPlumeDist);
+             errorPressurew2[i] = errorPressurew2[i]/(domainHeight-gasPlumeDist);
+
+             if(averageSatColumn[i]>1.0-eps_)
+             {
+                 errorSat[i] = 0.0;
+                 errorRelPerm[i] = 0.0;
+                 errorPressurew[i] = 0.0;
+                 errorPressurew2[i] = 0.0;
+                 //                errorNumSat[i] = 0.0;
+                 //                velocityWVerticalMax[i] = 0.0;
+             }
+
+             if(i == 19)
+             {
+                 //                Scalar errorSatb = errorRelPerm[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
+                 //                Scalar errorSatc = errorRelPerm[i]/(domainHeight);
+                 //                Scalar errorSatd = errorRelPerm[i]/(domainHeight*deltaZ/CTZ_);
+                 //                Scalar errorSatf = errorSat[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
+                 //                Scalar errorSatg = errorSat[i]/(domainHeight);
+                 //                Scalar errorSath = errorSat[i]/(domainHeight*deltaZ/CTZ_);
+
+                 outputFile_.open("errorTimeRelPerm20_nrml.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorRelPerm[i] << std::endl;
+                 outputFile_.close();
+
+
+
+
+                 //                outputFile_.open("errorTimeSat9b.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatb << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat9c.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatc << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat9d.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatd << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSat << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat9f.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatf << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat9g.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatg << std::endl;
+                 //                outputFile_.close();
+
+                 outputFile_.open("errorTimeSat20_nrml.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorSat[i] << std::endl;
+                 outputFile_.close();
+
+                 //                outputFile_.open("errorTimeVel20.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time()/segTime_ << " " << velocityWVerticalMax[i] << std::endl;
+                 //                outputFile_.close();
+                 outputFile_.open("error_Zp20_nv_init.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << gasPlumeDist << std::endl;
+                 outputFile_.close();
+
+                 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                 outputFile_.open("errorTimePres20.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorPressurew[i]<< std::endl;
+                 outputFile_.close();
+
+                 outputFile_.open("errorTimePres20_nrml.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorPressurew2[i] << std::endl;
+                 outputFile_.close();
+                 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+             }
+
+             if(i == 199)
+             {
+                 //                Scalar errorSatb = errorRelPerm[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
+                 //                Scalar errorSatc = errorRelPerm[i]/(domainHeight);
+                 //                Scalar errorSatd = errorRelPerm[i]/(domainHeight*deltaZ/CTZ_);
+                 //                Scalar errorSatf = errorSat[i]/((domainHeight-gasPlumeDist)*deltaZ/CTZ_);
+                 //                Scalar errorSatg = errorSat[i]/(domainHeight);
+                 //                Scalar errorSath = errorSat[i]/(domainHeight*deltaZ/CTZ_);
+
+                 outputFile_.open("errorTimeRelPerm200_nrml.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorRelPerm[i] << std::endl;
+                 outputFile_.close();
+
+                 //                outputFile_.open("errorTimeSat99b.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatb << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat99c.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatc << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat99d.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatd << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat99e.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSate << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat99f.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatf << std::endl;
+                 //                outputFile_.close();
+                 //
+                 //                outputFile_.open("errorTimeSat99g.out", std::ios::app);
+                 //                outputFile_ << this->timeManager().time() << " " << errorSatg << std::endl;
+                 //                outputFile_.close();
+
+                 outputFile_.open("errorTimeSat200_nrml.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorSat[i] << std::endl;
+                 outputFile_.close();
+
 //                 outputFile_.open("errorTimeVel200.out", std::ios::app);
 //                 outputFile_ << this->timeManager().time()/segTime_ << " " << velocityWVerticalMax[i] << std::endl;
 //                 outputFile_.close();
-//             }
-//
-//             outputFile_.open("errorSat.out", std::ios::app);
-//             outputFile_ << " " << errorSat[i];
-//             outputFile_.close();
-//
-// //            outputFile_.open("errorNumSat.out", std::ios::app);
-// //            outputFile_ << " " << errorNumSat[i];
-// //            outputFile_.close();
-// //
-//             outputFile_.open("errorRelPerm.out", std::ios::app);
-//             outputFile_ << " " << errorRelPerm[i];
-//             outputFile_.close();
-//
+                 outputFile_.open("errorTime_Zp200_nv_init.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << gasPlumeDist << std::endl;
+                 outputFile_.close();
+
+                 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                 outputFile_.open("errorTimePres200.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorPressurew[i]<< std::endl;
+                 outputFile_.close();
+
+                 outputFile_.open("errorTimePres_200_nrml.out", std::ios::app);
+                 outputFile_ << this->timeManager().time()/segTime_ << " " << errorPressurew2[i] << std::endl;
+                 outputFile_.close();
+                 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+             }
+
+
+
+             outputFile_.open("errorSat_nrml.out", std::ios::app);
+             outputFile_ << " " << errorSat[i];
+             outputFile_.close();
+
+             //            outputFile_.open("errorNumSat.out", std::ios::app);
+             //            outputFile_ << " " << errorNumSat[i];
+             //            outputFile_.close();
+             //
+             outputFile_.open("errorRelPerm_nrml.out", std::ios::app);
+             outputFile_ << " " << errorRelPerm[i];
+             outputFile_.close();
+
+             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+             outputFile_.open("errorPres.out", std::ios::app);
+             outputFile_ << " " << errorPressurew[i];
+             outputFile_.close();
+
+             outputFile_.open("errorPres_nrml.out", std::ios::app);
+             outputFile_ << " " << errorPressurew2[i];
+             outputFile_.close();
+             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+             outputFile_.open("Zp.out", std::ios::app);
+             outputFile_ << " " << gasPlumeDist ;
+             outputFile_.close();
+
 //             outputFile_.open("errorVel.out", std::ios::app);
 //             outputFile_ << " " << velocityWVerticalMax[i];
 //             outputFile_.close();
 //
-// //            //plot profiles
-// //            if((this->timeManager().timeStepIndex() == 2500 && i == 2) || (this->timeManager().timeStepIndex() == 2500 && i == 10) || (this->timeManager().timeStepIndex() == 2500 && i == 25) || (this->timeManager().timeStepIndex() == 2500 && i == 60))
-// //            {
-// //                //iterate over cells in column and write z-location
-// //                typename std::map<int, Element>::iterator it = mapColumns_.lower_bound(i);
-// //                for (; it != mapColumns_.upper_bound(i); ++it)
-// //                {
-// //                    GlobalPosition globalPos = (it->second).geometry().center();
-// //                    Scalar z1 = globalPos[dim - 1];
-// //                    outputFile_.open("satProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << z1;
-// //                    outputFile_.close();
-// //                    outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << z1;
-// //                    outputFile_.close();
-// //                }
-// //
-// //                //next line
-// //                outputFile_.open("satProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //                outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //
-// //                //iterate over cells in column and write satW and krw
-// //                typename std::map<int, Element>::iterator it2 = mapColumns_.lower_bound(i);
-// //                for (; it2 != mapColumns_.upper_bound(i); ++it2)
-// //                {
-// //                    int globalIdxI = this->variables().index(it2->second);
-// //                    Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
-// //                    Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
-// //
-// //                    outputFile_.open("satProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << satW;
-// //                    outputFile_.close();
-// //                    outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << krw;
-// //                    outputFile_.close();
-// //                }
-// //
-// //                //next line
-// //                outputFile_.open("satProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //                outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //
-// //                //iterate over height and write z-location
-// //                int steps = 100;
-// //                Scalar deltaZ = domainHeight/steps;
-// //                for (int j=0; j <= steps; ++j)
-// //                {
-// //                    Scalar z2 = j*deltaZ;
-// //
-// //                    outputFile_.open("satProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << z2;
-// //                    outputFile_.close();
-// //                    outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << z2;
-// //                    outputFile_.close();
-// //                }
-// //
-// //                //next line
-// //                outputFile_.open("satProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //                outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //
-// ////                Scalar gasPlumeDist = calculateGasPlumeDist(it->second, averageSatColumn[i]);
-// //                //iterate over height and write reconstructed saturation
-// //                for (int j=0; j <= steps; ++j)
-// //                {
-// //                    Scalar z2 = j*deltaZ;
-// //                    Scalar reconstSat = reconstSaturation(z2, gasPlumeDist);
-// //                    Scalar reconstKrw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), reconstSat);
-// //
-// //                    outputFile_.open("satProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << reconstSat;
-// //                    outputFile_.close();
-// //                    outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                    outputFile_ << " " << reconstKrw;
-// //                    outputFile_.close();
-// //                }
-// //
-// //                //next line
-// //                outputFile_.open("satProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //                outputFile_.open("relPermProfiles.out", std::ios::app);
-// //                outputFile_ << " " << std::endl;
-// //                outputFile_.close();
-// //            }
-//         }
+             //plot profiles
+             if((this->timeManager().time() >= 863789 && markeur < 350 ))// && i == 2) || (this->timeManager().timeStepIndex() == 250 && i == 10) || (this->timeManager().timeStepIndex() == 250 && i == 25) || (this->timeManager().timeStepIndex() == 250 && i == 60))
+             {
+                 markeur+=1;
+                 if((i==0 ))// && i == 2) || (this->timeManager().timeStepIndex() == 250 && i == 10) || (this->timeManager().timeStepIndex() == 250 && i == 25) || (this->timeManager().timeStepIndex() == 250 && i == 60))
+                 {
+                     //iterate over cells in column and write z-location
+                     typename std::map<int, Element>::iterator it = mapColumns_.lower_bound(i);
+                     for (; it != mapColumns_.upper_bound(i); ++it)
+                     {
+                         GlobalPosition globalPos = (it->second).geometry().center();
+                         Scalar z1 = globalPos[dim - 1];
+                         outputFile_.open("satProfiles.out", std::ios::app);
+                         outputFile_ << " " << z1;
+                         outputFile_.close();
+                         outputFile_.open("relPermProfiles.out", std::ios::app);
+                         outputFile_ << " " << z1;
+                         outputFile_.close();
+                     }
+                 }
+
+                 //next line
+                 outputFile_.open("satProfiles.out", std::ios::app);
+                 outputFile_ << " " << std::endl;
+                 outputFile_.close();
+                 outputFile_.open("relPermProfiles.out", std::ios::app);
+                 outputFile_ << " " << std::endl;
+                 outputFile_.close();
+
+                 //iterate over cells in column and write satW and krw
+                 typename std::map<int, Element>::iterator it2 = mapColumns_.lower_bound(i);
+                 for (; it2 != mapColumns_.upper_bound(i); ++it2)
+                 {
+                     int globalIdxI = this->variables().index(it2->second);
+                     Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
+                     Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
+
+                     outputFile_.open("satProfiles.out", std::ios::app);
+                     outputFile_ << " " << satW;
+                     outputFile_.close();
+                     outputFile_.open("relPermProfiles.out", std::ios::app);
+                     outputFile_ << " " << krw;
+                     outputFile_.close();
+                 }
+
+                 //next line
+//                 outputFile_.open("satProfiles.out", std::ios::app);
+//                 outputFile_ << " " << std::endl;
+//                 outputFile_.close();
+//                 outputFile_.open("relPermProfiles.out", std::ios::app);
+//                 outputFile_ << " " << std::endl;
+//                 outputFile_.close();
+
+                 //iterate over height and write z-location
+//                 int steps = 100;
+//                 Scalar deltaZ = domainHeight/steps;
+//                 for (int j=0; j <= steps; ++j)
+//                 {
+//                     Scalar z2 = j*deltaZ;
+//
+//                     outputFile_.open("satProfiles.out", std::ios::app);
+//                     outputFile_ << " " << z2;
+//                     outputFile_.close();
+//                     outputFile_.open("relPermProfiles.out", std::ios::app);
+//                     outputFile_ << " " << z2;
+//                     outputFile_.close();
+//                 }
+//
+//                 //next line
+//                 outputFile_.open("satProfiles.out", std::ios::app);
+//                 outputFile_ << " " << std::endl;
+//                 outputFile_.close();
+//                 outputFile_.open("relPermProfiles.out", std::ios::app);
+//                 outputFile_ << " " << std::endl;
+//                 outputFile_.close();
+
+                 //                Scalar gasPlumeDist = calculateGasPlumeDist(it->second, averageSatColumn[i]);
+                 //iterate over height and write reconstructed saturation
+//                 for (int j=0; j <= steps; ++j)
+//                 {
+//                     Scalar z2 = j*deltaZ;
+//                     Scalar reconstSat = reconstSaturation(z2, gasPlumeDist);
+//                     Scalar reconstKrw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), reconstSat);
+//
+//                     outputFile_.open("satProfiles.out", std::ios::app);
+//                     outputFile_ << " " << reconstSat;
+//                     outputFile_.close();
+//                     outputFile_.open("relPermProfiles.out", std::ios::app);
+//                     outputFile_ << " " << reconstKrw;
+//                     outputFile_.close();
+//                 }
+//
+//                 //next line
+//                 outputFile_.open("satProfiles.out", std::ios::app);
+//                 outputFile_ << " " << std::endl;
+//                 outputFile_.close();
+//                 outputFile_.open("relPermProfiles.out", std::ios::app);
+//                 outputFile_ << " " << std::endl;
+//                 outputFile_.close();
+             }
+
+         }
 //
 // //        averageSatTotal = averageSatTotal/gasPlumeVolume;
 //
@@ -857,17 +978,40 @@ public:
 // //        outputFile_ << this->timeManager().time() << " " << averageSatTotal << std::endl;
 // //        outputFile_.close();
 // //
-//         outputFile_.open("errorSat.out", std::ios::app);
-//         outputFile_ << " " << std::endl;
-//         outputFile_.close();
+
+
+
+         outputFile_.open("errorSat_nrml.out", std::ios::app);
+         outputFile_ << " " << std::endl;
+         outputFile_.close();
 // //
 // //        outputFile_.open("errorNumSat.out", std::ios::app);
 // //        outputFile_ << " " << std::endl;
 // //        outputFile_.close();
 // //
-//         outputFile_.open("errorRelPerm.out", std::ios::app);
-//         outputFile_ << " " << std::endl;
-//         outputFile_.close();
+         outputFile_.open("errorRelPerm_nrml.out", std::ios::app);
+         outputFile_ << " " << std::endl;
+         outputFile_.close();
+
+         /////////////////////////////////////////////////// ////////////////////////////////////////////////////////////////////////////////////////////
+         outputFile_.open("errorPres.out", std::ios::app);
+         outputFile_ << " " << std::endl;
+         outputFile_.close();
+         outputFile_.open("errorPres_nrml.out", std::ios::app);
+         outputFile_ << " " << std::endl;
+         outputFile_.close();
+         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+         outputFile_.open("Zp.out", std::ios::app);
+         outputFile_ << " " << std::endl ;
+         outputFile_.close();
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+         outputFile_.open("elapsed_nv_init.out", std::ios::app);////////////////////////
+         outputFile_ << " " << std::endl; ///////////////////
+         outputFile_.close();///////////////////////////////
+
+         outputFile_.open("iternubr1_nv_init.out", std::ios::app);/////////////////////////////////////////
+         outputFile_ << " " << std::endl;
+         outputFile_.close();////////////////////////////////
 //
 //         outputFile_.open("errorVel.out", std::ios::app);
 //         outputFile_ << " " << std::endl;
@@ -897,6 +1041,12 @@ public:
 //         Scalar totalMassNExpected = -GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, double, BoundaryConditions, Injectionrate) * (this->timeManager().time()+this->timeManager().timeStepSize())
 //                 * this->bBoxMax()[1];
 //         std::cout << "Error in mass: " << totalMassNExpected - totalMassN << ". ";
+         endTC = std::chrono::high_resolution_clock::now();////////////////////////////////////////////////////////////
+         elapsedTC = std::chrono::duration_cast<std::chrono::nanoseconds>(endTC - beginTC);//////////////////////////////////////////////
+
+         outputFile_.open("CPU_TC_nv_init.out", std::ios::app);////////////////////////////////
+         outputFile_ << this->timeManager().time()/segTime_ << " "<< elapsedCPU.count() <<" " << elapsedTC.count()<< std::endl;
+         outputFile_.close();///////////////////////////
      }
 
 
@@ -904,7 +1054,7 @@ public:
      *
      * Stores minGasPlumeDist for all grid cells
      */
-    Scalar calculateGasPlumeDist(const Element& element, Scalar satW)
+    Scalar calculateGasPlumeDist(const Element& element, Scalar satW, Scalar init_guess)
     {
         Scalar domainHeight = this->bBoxMax()[dim - 1];
         Scalar resSatW = this->spatialParams().materialLawParams(element).swr();
@@ -912,7 +1062,7 @@ public:
         Scalar gravity = this->gravity().two_norm();
 
         Scalar gasPlumeDist = 0.0;
-
+        int iternubr=0;
         if (veModel_ == 0) //calculate gasPlumeDist for sharp interface ve model
         {
             gasPlumeDist = domainHeight * (satW - resSatW) / (1.0 - resSatW);
@@ -920,6 +1070,8 @@ public:
 
         else if (veModel_ == 1) //calculate gasPlumeDist for capillary fringe model
         {
+            auto begin = std::chrono::high_resolution_clock::now();
+
             GlobalPosition globalPos = element.geometry().center();
             Scalar pRef = referencePressureAtPos(globalPos);
             Scalar tempRef = temperatureAtPos(globalPos);
@@ -928,7 +1080,7 @@ public:
             Scalar lambda = this->spatialParams().materialLawParams(element).lambda();
             Scalar entryP = this->spatialParams().materialLawParams(element).pe();
 
-            Scalar Xi = domainHeight / 2.0; //XiStart
+            Scalar Xi = init_guess;
 
             Scalar fullIntegral = 1.0 / (1.0 - lambda) * (1.0 - resSatW - resSatN) / ((densityW - densityNw) * gravity) * (std::pow(entryP, lambda)
             - std::pow(entryP, 2.0 - lambda) + std::pow((domainHeight * (densityW - densityNw) * gravity + entryP), (1.0 - lambda)));
@@ -979,6 +1131,16 @@ public:
                 Xi = 0.0;
             }
             gasPlumeDist = Xi;
+            auto end = std::chrono::high_resolution_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+
+            outputFile_.open("elapsed_nv_init.out", std::ios::app);
+            outputFile_ << " " << elapsed.count();
+            outputFile_.close();
+
+            outputFile_.open("iternubr1_nv_init.out", std::ios::app);
+            outputFile_ << " " << iternubr;
+            outputFile_.close();
         }
 
         return gasPlumeDist;
@@ -1044,6 +1206,23 @@ public:
 
         return krwIntegral;
     }
+    /*! \brief Calculates integral of difference of relative Pressure over z
+    *
+    */
+    Scalar calculateErrorPresIntegral(Scalar lowerBound, Scalar upperBound, Scalar PresW, Scalar gasPlumeDist,Element veElement)
+    {
+        int intervalNumber = 10;
+        Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
+        Scalar PresIntegral = 0.0;
+        for(int count=0; count<intervalNumber; count++ )
+        {
+            PresIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist,veElement) + reconstPressureW(lowerBound + (count+1)*deltaZ,gasPlumeDist,veElement))/2.0 - PresW);
+
+        }
+        PresIntegral = PresIntegral * deltaZ;
+
+        return PresIntegral;
+    }
 
     /*! \brief Calculates gasPlumeDist, distance of gas plume from bottom
      *
@@ -1084,6 +1263,43 @@ public:
 
         return reconstSaturation;
     }
+    /*! \brief Calculation of the reconstructed pressure
+    *
+    *
+    */
+    Scalar reconstPressureW(Scalar height,Scalar gasPlumeDist,Element veElement)
+    {
+
+        GlobalPosition globalPos = veElement.geometry().center();
+        Scalar pRef = referencePressureAtPos(globalPos);
+        Scalar tempRef = temperatureAtPos(globalPos);
+        Scalar densityW = WettingPhase::density(tempRef, pRef);
+        Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+
+
+        int eIdxGlobal = this->variables().index(veElement);
+        Scalar coarsePresW = this->variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
+        Scalar reconstPressure = coarsePresW;//reconstruct phase pressures for no ve model
+
+        if(veModel_ ==0 && height <= gasPlumeDist)
+        {
+            reconstPressure -= densityW * this->gravity().two_norm() * height;
+        }
+        else if(veModel_ == 1 && height <= gasPlumeDist)
+        {
+            reconstPressure -= densityW * this->gravity().two_norm() * height;
+        }
+        else if (veModel_ == 0 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for sharp interface ve model
+        {
+            reconstPressure -= densityW * this->gravity().two_norm() * gasPlumeDist + densityNw * this->gravity().two_norm() * (height - gasPlumeDist);
+        }
+        else if (veModel_ == 1 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for capillary fringe model
+        {
+            reconstPressure -= densityW * this->gravity().two_norm() * height;
+        }
+
+        return reconstPressure;
+    }
 
 private:
     static constexpr Scalar eps_ = 1e-6;
@@ -1097,6 +1313,15 @@ private:
     Scalar CTZ_;
     Scalar segTime_;
     int numberOfColumns_;
+
+    std::vector<Scalar> gasPlumeDist_temps;
+    std::chrono::_V2::system_clock::time_point  beginCPU;
+    std::chrono::_V2::system_clock::time_point  endCPU;
+    std::enable_if<true, std::chrono::duration<long int, std::ratio<1, 1000000000> > >::type  elapsedCPU;
+    std::chrono::_V2::system_clock::time_point  beginTC;
+    std::chrono::_V2::system_clock::time_point  endTC;
+    std::enable_if<true, std::chrono::duration<long int, std::ratio<1, 1000000000> > >::type  elapsedTC;
+    int markeur;
 };
 }
  //end namespace
