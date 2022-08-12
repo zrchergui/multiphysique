@@ -299,6 +299,8 @@ namespace Dumux {
       outputFile_.close();
       outputFile_.open("satProfiles.out", std::ios::trunc);
       outputFile_.close();
+      outputFile_.open("relPermProfiles.out", std::ios::trunc);
+      outputFile_.close();
       outputFile_.open("errorSat.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("errorSatNorm.out", std::ios::trunc);
@@ -1006,10 +1008,10 @@ namespace Dumux {
 	      outputFile_.open("errorTimeRelPermNorm200.out", std::ios::app);
 	      outputFile_ << " " << errorRelPermNorm[i] << std::endl;
 	      outputFile_.close();
-	      outputFile_.open("errorTimePres200.out", std::ios::app);
+	      outputFile_.open("errorTimePress200.out", std::ios::app);
 	      outputFile_ << " " << errorPress[i]<< std::endl;
 	      outputFile_.close();
-	      outputFile_.open("errorTimePresNorm200.out", std::ios::app);
+	      outputFile_.open("errorTimePressNorm200.out", std::ios::app);
 	      outputFile_ << " " << errorPressNorm[i] << std::endl;
 	      outputFile_.close();
 	      outputFile_.open("errorTime_Zp200_nv_init.out", std::ios::app);
