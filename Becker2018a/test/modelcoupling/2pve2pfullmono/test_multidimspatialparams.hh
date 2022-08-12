@@ -107,7 +107,7 @@ public:
     {
         GlobalPosition globalPos = element.geometry().center();
         if (globalPos[0] > 100 && globalPos[0] < 120 && globalPos[dim-1] > 20)
-            return 2.0e-12;
+            return 2.0e-12; //2.0e-15
         return permeability_; //(20mD)
     }
 

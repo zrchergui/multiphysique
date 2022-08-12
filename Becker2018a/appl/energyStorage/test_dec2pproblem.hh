@@ -748,7 +748,7 @@ namespace Dumux {
 	      Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
 	      Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(element), satW);
 	      // pressure in cell (Zakaria 22-08-12)
-	      Scalar PressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+	      Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
 	      ////
 
 	      if(veModel_ == 0)//calculate error for VE model
@@ -812,9 +812,9 @@ namespace Dumux {
 		      errorSatNorm[i] +=(1/satW) * ( calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist) );
 		      errorRelPermNorm[i] +=(1/krw)*( calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist) );
 
-		      Scalar errorInt = calculateErrorPresIntegral(bottom, top, PressW,gasPlumeDist,veElement);
+		      Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW,gasPlumeDist,veElement);
 		      errorPress[i] += errorInt;
-		      errorPressNorm[i] += (1/PressW)* errorInt; // normalized
+		      errorPressNorm[i] += (1/pressW)* errorInt; // normalized
 		      ////
 		    }
 		  else
@@ -829,9 +829,9 @@ namespace Dumux {
 		      errorSatNorm[i] += (1/satW)* ( std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
 		      errorRelPermNorm[i] += (1/krw)* ( std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist) );
 
-		      Scalar errorInt = calculateErrorPresIntegral(gasPlumeDist, top, PressW,gasPlumeDist, veElement);
+		      Scalar errorInt = calculateErrorPressIntegral(gasPlumeDist, top, pressW,gasPlumeDist, veElement);
 		      errorPress[i] += errorInt;
-		      errorPressNorm[i]+= (1/PressW)* errorInt; // normalized
+		      errorPressNorm[i]+= (1/pressW)* errorInt; // normalized
 		      ////
 		    }
 		}
@@ -1469,20 +1469,20 @@ namespace Dumux {
     /*! \brief Calculates integral of difference of relative Pressure over z
      *
      */
-    Scalar calculateErrorPresIntegral(Scalar lowerBound, Scalar upperBound, Scalar PressW, Scalar gasPlumeDist,Element veElement)
+    Scalar calculateErrorPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pressW, Scalar gasPlumeDist,Element veElement)
     {
       int intervalNumber = 10;
       Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
 
-      Scalar PresIntegral = 0.0;
+      Scalar PressIntegral = 0.0;
       for(int count=0; count<intervalNumber; count++ )
         {
-	  PresIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist,veElement) + reconstPressureW(lowerBound + (count+1)*deltaZ,gasPlumeDist,veElement))/2.0 - PressW);
+	  PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist,veElement) + reconstPressureW(lowerBound + (count+1)*deltaZ,gasPlumeDist,veElement))/2.0 - pressW);
 
         }
-      PresIntegral = PresIntegral * deltaZ;
+      PressIntegral = PressIntegral * deltaZ;
 
-      return PresIntegral;
+      return PressIntegral;
     }
     ////
 

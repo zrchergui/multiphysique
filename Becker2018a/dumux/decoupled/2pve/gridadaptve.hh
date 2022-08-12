@@ -167,7 +167,6 @@ public:
         // if not, the indicatorVector and refinement Bounds have to
         // specified by the problem through setIndicator()
         indicator.calculateIndicator();
-        indicator.printToFile(problem_.timeManager().time());// for the pressure criterion
 
         int maxIter = levelMax_;
         int iter = 0;

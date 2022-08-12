@@ -113,10 +113,6 @@ public:
         return nextMaxLevel_ == maxAllowedLevel_;
     }
 
-    /*! \To print the criterion used in the calculation */
-    void printToFile(auto  timer_t)
-    {}
-
     /*! \brief Constructs a GridAdaptionIndicator instance
      *
      * This standard indicator is based on the saturation gradient. It checks the local gradient
