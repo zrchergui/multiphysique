@@ -685,7 +685,7 @@ namespace Dumux {
 	  errorRelPermNorm[i] = 0.0;
 	  errorPress[i] = 0.0;
 	  errorPressNorm[i] = 0.0;
-	  ////
+	  /////
 	}
       Scalar averageSatTotal = 0.0;
       Scalar gasPlumeVolume = 0.0;// volume of gas plume
@@ -1014,7 +1014,7 @@ namespace Dumux {
 	      outputFile_.open("errorTimePressNorm200.out", std::ios::app);
 	      outputFile_ << " " << errorPressNorm[i] << std::endl;
 	      outputFile_.close();
-	      outputFile_.open("errorTime_Zp200_nv_init.out", std::ios::app);
+	      outputFile_.open("error_Zp200.out", std::ios::app);
 	      outputFile_ << " " << gasPlumeDist << std::endl;
 	      outputFile_.close();
 	      ////
