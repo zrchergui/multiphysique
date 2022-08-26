@@ -281,7 +281,7 @@ namespace Dumux {
       outputFile_.close();
       outputFile_.open("errorTimePressNorm20.out", std::ios::trunc);
       outputFile_.close();
-      outputFile_.open("error_Zp20.out", std::ios::trunc);
+      outputFile_.open("timeZp20.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("errorTimeSat200.out", std::ios::trunc);
       outputFile_.close();
@@ -295,11 +295,13 @@ namespace Dumux {
       outputFile_.close();
       outputFile_.open("errorTimePressNorm200.out", std::ios::trunc);
       outputFile_.close();
-      outputFile_.open("error_Zp200.out", std::ios::trunc);
+      outputFile_.open("timeZp200.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("satProfiles.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("relPermProfiles.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("pressProfiles.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("errorSat.out", std::ios::trunc);
       outputFile_.close();
@@ -313,7 +315,7 @@ namespace Dumux {
       outputFile_.close();
       outputFile_.open("errorPressNorm.out", std::ios::trunc);
       outputFile_.close();
-      outputFile_.open("Zp.out", std::ios::trunc);
+      outputFile_.open("zp.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("CPUTime.out", std::ios::trunc);
       outputFile_.close();
@@ -324,6 +326,10 @@ namespace Dumux {
       ////
 
       veModel_ = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
+
+      // store final time to save final saturation, permeability and pressure profiles (Zakaria 2022-08-26)
+      endTime_ = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, double, TimeManager, TEnd);
+      ////
 
       //for adaptivity:
       GridCreator::grid().globalRefine(GET_PARAM_FROM_GROUP(TypeTag, int, GridAdapt, MaxLevel));
@@ -359,7 +365,7 @@ namespace Dumux {
 
       // initialize column counter used to store solution at only one time step (Zakaria 22-08-12)
       colCounter_ = 0;
-      //
+      ////
     }
 
     /*!
@@ -598,7 +604,7 @@ namespace Dumux {
       outputFile_.open("errorTimePressNorm20.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
-      outputFile_.open("error_Zp20.out", std::ios::app);
+      outputFile_.open("timeZp20.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("errorTimeSat200.out", std::ios::app);
@@ -619,7 +625,7 @@ namespace Dumux {
       outputFile_.open("errorTimePressNorm200.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
-      outputFile_.open("error_Zp200.out", std::ios::app);
+      outputFile_.open("timeZp200.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("errorSat.out", std::ios::app);
@@ -640,7 +646,7 @@ namespace Dumux {
       outputFile_.open("errorPressNorm.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
-      outputFile_.open("Zp.out", std::ios::app);
+      outputFile_.open("zp.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("CPUTime.out", std::ios::app);
@@ -727,23 +733,25 @@ namespace Dumux {
 	  Scalar resSatW = this->spatialParams().materialLawParams(it->second).swr();
 
 	  // set the Newton initial guess to calculate plume height (Zakaria 22-08-12)
-	  Scalar gasPlumeDist = calculateGasPlumeDist(dummy_, averageSatColumn[i],gasPlumeDistTemp_[i]);
-	  gasPlumeDistTemp_[i] = gasPlumeDist; // update new temporary height
+	  Scalar gasPlumeDist = calculateGasPlumeDist(dummy_,averageSatColumn[i],gasPlumeDistTemp_[i]);
+	  //gasPlumeDistTemp_[i] = std::min(0.99*domainHeight,gasPlumeDist); // update new temporary height
+	  gasPlumeDistTemp_[i] = domainHeight/2.0;
 	  ////
 
 	  //calculate error to VE situation
 	  it = mapColumns_.lower_bound(i);
 
-	  // store values useful to pressure error calculation (Zakaria 22-08-12)	  
-	  int globalIdxILower = this->variables().index(it->second); // bottom cell index
-	  Element veElement = mapColumns_.find(i)->second;
+	  // store the bottom element of column i to compute coarse pressure later (Zakaria 22-08-12)	  
+	  Element veElement = mapColumns_.lower_bound(i)->second;
+	  int eIdxGlobal = this->variables().index(veElement);
+	  Scalar coarsePressW = this->variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
 	  ////
 
 	  for (; it != mapColumns_.upper_bound(i); ++it)
 	    {
 	      Element element = it->second;
 	      int globalIdxI = this->variables().index(element);
-	      GlobalPosition globalPos = (it->second).geometry().center();
+	      GlobalPosition globalPos = element.geometry().center();
 	      Scalar top = globalPos[dim - 1] + deltaZ/2.0;
 	      Scalar bottom = globalPos[dim - 1] - deltaZ/2.0;
 
@@ -800,7 +808,7 @@ namespace Dumux {
 		      errorRelPerm[i] += std::abs(deltaZ * (krw - 1.0));
 
 		      // normalized errors (Zakaria 2022-08-12)
-		      errorSatNorm[i] +=(1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
+		      errorSatNorm[i] += (1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
 		      errorRelPermNorm[i] += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
 		      ////
 		    }
@@ -810,13 +818,9 @@ namespace Dumux {
 		      //errorNumSat[i] += std::abs(deltaZ * satW - calculateSatIntegral(bottom, top, gasPlumeDist));
 		      errorRelPerm[i] += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
 		      
-		      // errors in pressure and normalized ones (Zakaria 2022-08-12)
+		      // errors in normalized variables (Zakaria 2022-08-12)
 		      errorSatNorm[i] +=(1/satW) * ( calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist) );
 		      errorRelPermNorm[i] +=(1/krw)*( calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist) );
-
-		      Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW,gasPlumeDist,veElement);
-		      errorPress[i] += errorInt;
-		      errorPressNorm[i] += (1/pressW)* errorInt; // normalized
 		      ////
 		    }
 		  else
@@ -827,16 +831,17 @@ namespace Dumux {
 		      //                        errorNumSat[i] += std::abs(deltaZ * satW - (calculateSatIntegral(gasPlumeDist, top, gasPlumeDist) + lowerDelta));
 		      errorRelPerm[i] += std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
 
-		      // error in pressure and normalized ones (Zakaria 2022-08-12)
+		      // error in normalized variables (Zakaria 2022-08-12)
 		      errorSatNorm[i] += (1/satW)* ( std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
 		      errorRelPermNorm[i] += (1/krw)* ( std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist) );
-
-		      Scalar errorInt = calculateErrorPressIntegral(gasPlumeDist, top, pressW,gasPlumeDist, veElement);
-		      errorPress[i] += errorInt;
-		      errorPressNorm[i]+= (1/pressW)* errorInt; // normalized
 		      ////
 		    }
 		}
+	      // error in pressure (Zakaria 2022-08-26)
+	      Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, coarsePressW);
+	      errorPress[i] += errorInt;
+	      errorPressNorm[i] += (1/pressW)* errorInt;
+	      ////
 
 	      //                 //calculate velocity criterion
 	      //                 for (const auto& intersection : intersections(this->gridView(), element))
@@ -862,8 +867,8 @@ namespace Dumux {
 	  // update of pressure and normalized errors (Zakaria 2022-08-12)
 	  errorSatNorm[i] = errorSatNorm[i]/(domainHeight-gasPlumeDist);
 	  errorRelPermNorm[i] = errorRelPermNorm[i]/(domainHeight-gasPlumeDist);
-	  errorPress[i] = errorPress[i]/(domainHeight - gasPlumeDist);
-	  errorPressNorm[i] = errorPressNorm[i]/(domainHeight - gasPlumeDist);
+	  errorPress[i] = errorPress[i]/domainHeight;
+	  errorPressNorm[i] = errorPressNorm[i]/domainHeight;
 	  ////
 
 	  if(averageSatColumn[i]>1.0-eps_)
@@ -944,7 +949,7 @@ namespace Dumux {
 	      outputFile_.open("errorTimePressNorm20.out", std::ios::app);
 	      outputFile_ << " " << errorPressNorm[i] << std::endl;
 	      outputFile_.close();
-	      outputFile_.open("error_Zp20.out", std::ios::app);
+	      outputFile_.open("timeZp20.out", std::ios::app);
 	      outputFile_ << " " << gasPlumeDist << std::endl;
 	      outputFile_.close();
 	      ////
@@ -1014,7 +1019,7 @@ namespace Dumux {
 	      outputFile_.open("errorTimePressNorm200.out", std::ios::app);
 	      outputFile_ << " " << errorPressNorm[i] << std::endl;
 	      outputFile_.close();
-	      outputFile_.open("error_Zp200.out", std::ios::app);
+	      outputFile_.open("timeZp200.out", std::ios::app);
 	      outputFile_ << " " << gasPlumeDist << std::endl;
 	      outputFile_.close();
 	      ////
@@ -1049,7 +1054,7 @@ namespace Dumux {
 	  outputFile_.open("errorPressNorm.out", std::ios::app);
 	  outputFile_ << " " << errorPressNorm[i];
 	  outputFile_.close();
-	  outputFile_.open("Zp.out", std::ios::app);
+	  outputFile_.open("zp.out", std::ios::app);
 	  outputFile_ << " " << gasPlumeDist ;
 	  outputFile_.close();
 	  ////
@@ -1152,9 +1157,8 @@ namespace Dumux {
 	  //            }
 	  //   }
 
-	  // plot profiles at final time (Zakaria 2022-12-08)
-	  Scalar endTime = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, double, TimeManager, TEnd);
-	  if((this->timeManager().time() >= endTime && colCounter_ < numberOfColumns_ ))
+	  // plot profiles at final time (Zakaria 2022-08-12)
+	  if (this->timeManager().time() + this->timeManager().timeStepSize() >= endTime_ && colCounter_ < numberOfColumns_)
 	    {
 	      colCounter_+=1;
 	      if (i==0)
@@ -1166,19 +1170,25 @@ namespace Dumux {
 		      GlobalPosition globalPos = (it1->second).geometry().center();
 		      Scalar z = globalPos[dim - 1];
 		      outputFile_.open("satProfiles.out", std::ios::app);
-		      outputFile_ << " " << z;
+		      outputFile_ << z << " ";
 		      outputFile_.close();
 		      outputFile_.open("relPermProfiles.out", std::ios::app);
-		      outputFile_ << " " << z;
+		      outputFile_ << z << " ";
+		      outputFile_.close();
+		      outputFile_.open("pressProfiles.out", std::ios::app);
+		      outputFile_ << z << " ";
 		      outputFile_.close();
 		    }
 		}
 
 	      outputFile_.open("satProfiles.out", std::ios::app);
-	      outputFile_ << " " << std::endl;
+	      outputFile_ << std::endl;
 	      outputFile_.close();
 	      outputFile_.open("relPermProfiles.out", std::ios::app);
-	      outputFile_ << " " << std::endl;
+	      outputFile_ << std::endl;
+	      outputFile_.close();
+	      outputFile_.open("pressProfiles.out", std::ios::app);
+	      outputFile_ << std::endl;
 	      outputFile_.close();
 
 	      // store results
@@ -1188,11 +1198,15 @@ namespace Dumux {
 		  int globalIdxI = this->variables().index(it2->second);
 		  Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
 		  Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
+		  Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
 		  outputFile_.open("satProfiles.out", std::ios::app);
-		  outputFile_ << " " << satW;
+		  outputFile_ << satW << " ";
 		  outputFile_.close();
 		  outputFile_.open("relPermProfiles.out", std::ios::app);
-		  outputFile_ << " " << krw;
+		  outputFile_ << krw << " ";
+		  outputFile_.close();
+		  outputFile_.open("pressProfiles.out", std::ios::app);
+		  outputFile_ << pressW << " ";
 		  outputFile_.close();
 		}
 	    }
@@ -1250,31 +1264,31 @@ namespace Dumux {
 
       // finalize result files (Zakaria 2022-08-12)
       outputFile_.open("errorSat.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("errorSatNorm.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("errorRelPerm.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("errorRelPermNorm.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("errorPress.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("errorPressNorm.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
-      outputFile_.open("Zp.out", std::ios::app);
-      outputFile_ << " " << std::endl ;
+      outputFile_.open("zp.out", std::ios::app);
+      outputFile_ << std::endl ;
       outputFile_.close();
       outputFile_.open("CPUNewton.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("iterNumberNewton.out", std::ios::app);
-      outputFile_ << " " << std::endl;
+      outputFile_ << std::endl;
       outputFile_.close();
       ////
 
@@ -1295,7 +1309,7 @@ namespace Dumux {
      *
      * Stores minGasPlumeDist for all grid cells
      */
-    Scalar calculateGasPlumeDist(const Element& element, Scalar satW, Scalar init_guess)
+    Scalar calculateGasPlumeDist(const Element& element, Scalar satW, Scalar initGuess)
     {
       Scalar domainHeight = this->bBoxMax()[dim - 1];
       Scalar resSatW = this->spatialParams().materialLawParams(element).swr();
@@ -1328,8 +1342,7 @@ namespace Dumux {
 	  Scalar entryP = this->spatialParams().materialLawParams(element).pe();
 
 	  // start from previous plume height (Zakaria 2022-08-12)
-	  Scalar Xi = init_guess; //XiStart
-	  //Scalar Xi = domainHeight / 2.0; //XiStart
+	  Scalar Xi = initGuess;
 	  ////
 
 	  Scalar fullIntegral = 1.0 / (1.0 - lambda) * (1.0 - resSatW - resSatN) / ((densityW - densityNw) * gravity) * (std::pow(entryP, lambda)
@@ -1471,7 +1484,7 @@ namespace Dumux {
     /*! \brief Calculates integral of difference of relative Pressure over z
      *
      */
-    Scalar calculateErrorPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pressW, Scalar gasPlumeDist,Element veElement)
+    Scalar calculateErrorPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pressW, Scalar gasPlumeDist,Scalar coarsePressW)
     {
       int intervalNumber = 10;
       Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
@@ -1479,7 +1492,7 @@ namespace Dumux {
       Scalar PressIntegral = 0.0;
       for(int count=0; count<intervalNumber; count++ )
         {
-	  PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist,veElement) + reconstPressureW(lowerBound + (count+1)*deltaZ,gasPlumeDist,veElement))/2.0 - pressW);
+	  PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist, coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ, gasPlumeDist, coarsePressW))/2.0 - pressW);
 
         }
       PressIntegral = PressIntegral * deltaZ;
@@ -1533,34 +1546,33 @@ namespace Dumux {
      *
      *
      */
-    Scalar reconstPressureW(Scalar height,Scalar gasPlumeDist,Element veElement)
+    Scalar reconstPressureW(Scalar height,Scalar gasPlumeDist,Scalar coarsePressW)
     {
 
-      GlobalPosition globalPos = veElement.geometry().center();
+      GlobalPosition globalPos = dummy_.geometry().center();
       Scalar pRef = referencePressureAtPos(globalPos);
       Scalar tempRef = temperatureAtPos(globalPos);
       Scalar densityW = WettingPhase::density(tempRef, pRef);
       Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+      Scalar gravity = this->gravity().two_norm();
 
-      int eIdxGlobal = this->variables().index(veElement);
-      Scalar coarsePressW = this->variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
       Scalar reconstPressure = coarsePressW; //reconstruct phase pressures for no ve model
 
       if(veModel_ ==0 && height <= gasPlumeDist)
         {
-	  reconstPressure -= densityW * this->gravity().two_norm() * height;
+	  reconstPressure -= densityW * gravity * height;
         }
       else if(veModel_ == 1 && height <= gasPlumeDist)
         {
-	  reconstPressure -= densityW * this->gravity().two_norm() * height;
+	  reconstPressure -= densityW * gravity * height;
         }
       else if (veModel_ == 0 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for sharp interface ve model
         {
-	  reconstPressure -= densityW * this->gravity().two_norm() * gasPlumeDist + densityNw * this->gravity().two_norm() * (height - gasPlumeDist);
+	  reconstPressure -= densityW * gravity * gasPlumeDist + densityNw * gravity * (height - gasPlumeDist);
         }
       else if (veModel_ == 1 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for capillary fringe model
         {
-	  reconstPressure -= densityW * this->gravity().two_norm() * height;
+	  reconstPressure -= densityW * gravity * height;
         }
 
       return reconstPressure;
@@ -1584,6 +1596,7 @@ namespace Dumux {
     std::vector<Scalar> gasPlumeDistTemp_;
     std::chrono::_V2::system_clock::time_point beginCPU_;
     int colCounter_;
+    double endTime_;
     ////
   };
 }

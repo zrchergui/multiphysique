@@ -127,7 +127,7 @@ namespace Dumux
                     Scalar errorSat = 0.0;
                     Scalar errorRelPerm = 0.0;
 
-                    // for the pressure criterion - only for capillary fringe model - and normalized ones (Zakaria 2022-08-12)
+                    // initialize the additional criteria to choose from - pressure only for capillary fringe model (Zakaria 2022-08-12)
                     Scalar errorSatNorm = 0.0;
                     Scalar errorRelPermNorm = 0.0;
                     Scalar errorPress = 0.0;
@@ -136,9 +136,10 @@ namespace Dumux
 
                     it = mapAllColumns.lower_bound(i);
 
-                    // for the pressure criterion (Zakaria 2022-08-12)
-                    int globalIdxILower = problem_.variables().index(it->second); 
-                    Element veElement = mapAllColumns.find(i)->second;
+                    // store bottom pressure of column i to compute hydrostatic pressure later (Zakaria 22-08-12)
+                    Element veElement = mapAllColumns.lower_bound(i)->second;
+                    int eIdxGlobal = problem_.variables().index(veElement);
+                    Scalar coarsePressW = problem_.variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
                     ////
 
                     for (; it != mapAllColumns.upper_bound(i); ++it)
@@ -152,8 +153,7 @@ namespace Dumux
 
                             Scalar satW = problem_.variables().cellData(globalIdxI).saturation(wPhaseIdx);
                             Scalar krw = MaterialLaw::krw(problem_.spatialParams().materialLawParams(element), satW);
-
-                            // for the pressure criterion (Zakaria 2022-08-12)
+                            // pressure in cell (Zakaria 2022-08-12)
                             Scalar pressW = problem_.variables().cellData(globalIdxI).pressure(wPhaseIdx);
                             ////
 
@@ -164,7 +164,7 @@ namespace Dumux
                                             errorSat += std::abs(deltaZ * (satW - 1.0));
                                             errorRelPerm += std::abs(deltaZ * (krw - 1.0));
 
-                                            // for normalized criteria (Zakaria 2022-08-12) 
+                                            // normalized errors (Zakaria 2022-08-12) 
                                             errorSatNorm += (1/satW)* std::abs(deltaZ * (satW - 1.0));
                                             errorRelPermNorm += (1/krw)* std::abs(deltaZ * (krw - 1.0));
                                             ////
@@ -174,7 +174,7 @@ namespace Dumux
                                             errorSat += std::abs(deltaZ * (satW - resSatW));
                                             errorRelPerm += std::abs(deltaZ * (krw - 0.0));
 
-                                            // for normalized criteria (Zakaria 2022-08-12) 
+                                            // normalized errors (Zakaria 2022-08-12) 
                                             errorSatNorm += (1/satW)* std::abs(deltaZ * (satW - resSatW));;
                                             errorRelPermNorm += (1/krw)* std::abs(deltaZ * (krw - 0.0));
                                             ////
@@ -186,7 +186,7 @@ namespace Dumux
                                             errorSat += std::abs(lowerDelta * (satW - 1.0)) + std::abs(upperDelta * (satW - resSatW));
                                             errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + std::abs(upperDelta * (krw - 0.0));
 
-                                            // for normalized criteria (Zakaria 2022-08-12) 
+                                            // normalized errors (Zakaria 2022-08-12) 
                                             errorSatNorm += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + std::abs(upperDelta * (satW - resSatW)));
                                             errorRelPermNorm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + std::abs(upperDelta * (krw - 0.0)));
                                             ////                                            
@@ -198,17 +198,20 @@ namespace Dumux
                                         {
                                             errorSat += std::abs(deltaZ * (satW - 1.0));
                                             errorRelPerm += std::abs(deltaZ * (krw - 1.0));
+
+                                            // normalized errors (Zakaria 2022-08-12)
+                                            errorSatNorm += (1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
+                                            errorRelPermNorm += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
+                                            ////
                                         }
                                     else if (bottom >= gasPlumeDist)
                                         {
                                             errorSat += calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
                                             errorRelPerm += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
                         
-                                            // for the pressure and normalized criteria (Zakaria 2022-08-12)
+                                            // errors in normalized variables (Zakaria 2022-08-12)
                                             errorSatNorm += (1/satW)* calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
                                             errorRelPermNorm += (1/krw)* calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
-                                            errorPressNorm += calculateErrorPressIntegral(bottom, top, pressW,veElement);
-                                            errorPressNorm += (1/pressW)* calculateErrorPressIntegral(bottom, top, pressW,veElement);
                                             ////
                                         }
                                     else
@@ -218,23 +221,26 @@ namespace Dumux
                                             errorSat += std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
                                             errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
 
-                                            // for the pressure and normalized criteria (Zakaria 2022-08-12)
+                                            // error in normalized variables (Zakaria 2022-08-12)
                                             errorSatNorm += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
-                                            errorRelPermNrm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist));
-                                            errorPress += calculateErrorPressIntegral(gasPlumeDist, top, pressW,veElement);
-                                            errorPressNorm += (1/pressW)* calculateErrorPressIntegral(gasPlumeDist, top, pressW,veElement);
+                                            errorRelPermNorm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist));
                                             ////
                                         }
                                 }
+                            // error in pressure (Zakaria 2022-08-26)
+                            Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, coarsePressW);
+                            errorPress += errorInt;
+                            errorPressNorm += (1/pressW)* errorInt;
+                            ////
                         }
                     indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
 
-                    // for the pressure and normalized criteria (Zakaria 2022-08-12)
+                    // update of pressure and normalized errors (Zakaria 2022-08-12)
                     //indicatorVector_[i] =  errorSatNorm/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] =  errorRelPermNorm/(domainHeight - gasPlumeDist);
-                    //indicatorVector_[i] =  errorPress/(domainHeight - gasPlumeDist);
-                    //indicatorVector_[i] =  errorPressNorm/(domainHeight - gasPlumeDist);
+                    //indicatorVector_[i] =  errorPress/domainHeight;
+                    //indicatorVector_[i] =  errorPressNorm/domainHeight;
                     ////
                 }
             Scalar absoluteError = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, GridAdapt, AbsoluteError);
@@ -383,11 +389,11 @@ namespace Dumux
             return krwIntegral;
         }
 
-        // for the pressure criterion (Zakaria 2022-08-12)
+        // Calculates integral of difference of pressure over z (Zakaria 2022-08-12)
         /*! \brief Calculates integral of difference of relative Pressure over z
          *
          */
-        Scalar calculateErrorPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pressW, Element veElement)
+        Scalar calculateErrorPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pressW, Scalar gasPlumeDist, Scalar coarsePressW)
         {
             int intervalNumber = 10;
             Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
@@ -395,7 +401,7 @@ namespace Dumux
             Scalar PressIntegral = 0.0;
             for(int count=0; count<intervalNumber; count++ )
                 {
-                    PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, veElement) + reconstPressureW(lowerBound + (count+1)*deltaZ,veElement))/2.0 - pressW);
+                    PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist, coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ, gasPlumeDist, coarsePressW))/2.0 - pressW);
                 }
             PressIntegral = PressIntegral * deltaZ;
 
@@ -444,15 +450,44 @@ namespace Dumux
             return reconstSaturation;
         }
 
-        // for the pressure criterion (Zakaria 2022-08-12)
-        /*! \brief Calculation of the reconstructed pressure
+        // Calculation of the reconstructed water pressure (Zakaria 2022-08-12)
+        /*! \brief Calculation of the water reconstructed pressure
          *
          *
          */
-        Scalar reconstPressureW(Scalar height, Element veElement)
+        Scalar reconstPressureW(Scalar height, Scalar gasPlumeDist, Scalar coarsePressW)
         {
-            Scalar recPressurew = problem_.pressureModel().reconstPressure(height,wPhaseIdx,veElement);
-            return recPressurew;
+            // Scalar recPressurew = problem_.pressureModel().reconstPressure(height,wPhaseIdx,veElement);
+            // return recPressurew;
+
+            GlobalPosition globalPos = dummy_.geometry().center();
+            Scalar pRef = problem_.referencePressureAtPos(globalPos);
+            Scalar tempRef = problem_.temperatureAtPos(globalPos);
+            Scalar densityW = WettingPhase::density(tempRef, pRef);
+            Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+            Scalar gravity = problem_.gravity().two_norm();
+            int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
+
+            Scalar reconstPressure = coarsePressW; //reconstruct phase pressures for no ve model
+
+            if(veModel == 0 && height <= gasPlumeDist)
+                {
+                    reconstPressure -= densityW * gravity * height;
+                }
+            else if(veModel == 1 && height <= gasPlumeDist)
+                {
+                    reconstPressure -= densityW * gravity * height;
+                }
+            else if (veModel == 0 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for sharp interface ve model
+                {
+                    reconstPressure -= densityW * gravity * gasPlumeDist + densityNw * gravity * (height - gasPlumeDist);
+                }
+            else if (veModel == 1 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for capillary fringe model
+                {
+                    reconstPressure -= densityW * gravity * height;
+                }
+
+            return reconstPressure;
         }
         ////
 

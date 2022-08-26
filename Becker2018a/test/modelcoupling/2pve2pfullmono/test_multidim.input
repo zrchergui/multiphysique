@@ -28,7 +28,7 @@ InjectionrateN = -5.835e-4 # [kg/(m² s)] (Neumann flux)
 InjectionrateW = 0.0 # [kg/(m³ s)]
 
 [SpatialParams]
-Model = 1 # 0: linear model, 1: exponential model, 2: Brooks-Corey model, this is only necessary if VE-correction is switched on
+Model = 2 # 0: linear model, 1: exponential model, 2: Brooks-Corey model, this is only necessary if VE-correction is switched on
 Lambda = 2.0 # Brooks-Corey lambda (only for Brooks-Corey model)
 EntryPressure = 1.0e5 # entry pressure
 MaxPc = 0.0  # maximum capillary pressure (only for linear and exponential model)
@@ -46,7 +46,7 @@ MinLevel = 0 # [-] minimum level of refinement
 MaxLevel = 5 # [-] maximum level of refinement
 RefineTolerance = 0.1 # threshold for refinement criterion
 CoarsenTolerance = 0.01 # threshold for coarsening criterion
-AbsoluteError = 0.03 # accepted error in profile
+AbsoluteError = 0.001 # accepted error in profile
 
 [Vtk]
 OutputLevel = 2 # 0 -> only primary variables (default), 1 -> also secondary variables
