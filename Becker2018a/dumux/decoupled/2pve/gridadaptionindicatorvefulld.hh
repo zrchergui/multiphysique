@@ -140,6 +140,7 @@ namespace Dumux
                     Element veElement = mapAllColumns.lower_bound(i)->second;
                     int eIdxGlobal = problem_.variables().index(veElement);
                     Scalar coarsePressW = problem_.variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
+                    Scalar bottomPressW = reconstPressureW(-deltaZ/2,gasPlumeDist,coarsePressW); //slightly different from coarsePressW when columnModel > 1 since coarsePressW is in this case the pressure at the center of the bottom cell and not the pressure at bottom
                     ////
 
                     for (; it != mapAllColumns.upper_bound(i); ++it)
@@ -228,19 +229,19 @@ namespace Dumux
                                         }
                                 }
                             // error in pressure (Zakaria 2022-08-26)
-                            Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, coarsePressW);
+                            Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
                             errorPress += errorInt;
                             errorPressNorm += (1/pressW)* errorInt;
                             ////
                         }
-                    indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
+                    //indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
 
                     // update of pressure and normalized errors (Zakaria 2022-08-12)
                     //indicatorVector_[i] =  errorSatNorm/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] =  errorRelPermNorm/(domainHeight - gasPlumeDist);
-                    //indicatorVector_[i] =  errorPress/domainHeight;
-                    //indicatorVector_[i] =  errorPressNorm/domainHeight;
+                    //indicatorVector_[i] =  errorPress/(domainHeight - gasPlumeDist);
+                    indicatorVector_[i] =  errorPressNorm/(domainHeight - gasPlumeDist);
                     ////
                 }
             Scalar absoluteError = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, GridAdapt, AbsoluteError);
@@ -457,9 +458,6 @@ namespace Dumux
          */
         Scalar reconstPressureW(Scalar height, Scalar gasPlumeDist, Scalar coarsePressW)
         {
-            // Scalar recPressurew = problem_.pressureModel().reconstPressure(height,wPhaseIdx,veElement);
-            // return recPressurew;
-
             GlobalPosition globalPos = dummy_.geometry().center();
             Scalar pRef = problem_.referencePressureAtPos(globalPos);
             Scalar tempRef = problem_.temperatureAtPos(globalPos);

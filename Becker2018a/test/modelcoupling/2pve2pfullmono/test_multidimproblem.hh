@@ -857,7 +857,7 @@ namespace Dumux {
                 //// store bottom pressure of column i to compute hydrostatic pressure later (Zakaria 22-08-25)	 
                 Element veElement = mapAllColumns_.lower_bound(i)->second;
                 int eIdxGlobal = this->variables().index(veElement);
-                Scalar coarsePressW = this->variables().cellData(eIdxGlobal).pressure(wPhaseIdx); 
+                Scalar coarsePressW = this->variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
                 ////////
                 
                 if (i < 4) // never have VE in the first four columns
@@ -1015,6 +1015,8 @@ namespace Dumux {
                 double deltaZ = domainHeight/(numberOfCells[dim - 1]*std::pow(2, maxLevel));
                 Scalar resSatW = this->spatialParams().materialLawParams(it->second).swr();
 
+                Scalar bottomPressW = reconstPressureW(-deltaZ/2,gasPlumeDist,coarsePressW); //slightly different from coarsePressW when columnModel > 1 since coarsePressW is in this case the pressure at the center of the bottom cell and not the pressure at bottom
+
                 for (; it != mapAllColumns_.upper_bound(i); ++it) {
                     Element element = it->second;
                     int globalIdxI = this->variables().index(element);
@@ -1068,19 +1070,19 @@ namespace Dumux {
                                 errorRelPerm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist)); 
                             }
                         }
-                    Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, coarsePressW);
+                    Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
                     errorPress += errorInt;
                     errorPressNorm += (1/pressW)* errorInt;
                 }
 
 
                 //// select which criterion is being used (Zakaria 2022-08-25)
-                criterion_[i] = errorSat / (domainHeight - gasPlumeDist);
+                //criterion_[i] = errorSat / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorRelPerm / (domainHeight - gasPlumeDist);
-                //criterion_[i] =  errorPress / domainHeight;
+                //criterion_[i] =  errorPress / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorSatNorm / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorRelPermNorm / (domainHeight - gasPlumeDist);
-                //criterion_[i] =  errorPressNorm / domainHeight;
+                criterion_[i] =  errorPressNorm / (domainHeight - gasPlumeDist);
                 ////////
                 
                 //// store errors and plume height in files for 20th and 200th columns (Zakaria 2022-08-25)
@@ -1485,10 +1487,6 @@ namespace Dumux {
          */
         Scalar reconstPressureW(Scalar height,Scalar gasPlumeDist,Scalar coarsePressW)
         {
-            // Scalar reconstPressure = this->pressureModel().reconstPressure(height,  wPhaseIdx,  veElement);
-
-            // return reconstPressure;
-
             GlobalPosition globalPos = dummy_.geometry().center();
             Scalar pRef = referencePressureAtPos(globalPos);
             Scalar tempRef = temperatureAtPos(globalPos);
