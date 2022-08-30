@@ -268,7 +268,7 @@ namespace Dumux {
       //        outputFile_.open("averageSatPlume.out", std::ios::trunc);
       //        outputFile_.close();
 
-      //// create files to store results (Zakaria 2022-08-12)
+      //// create files to store results (Zakaria 2022-08-12 and 2022-08-30)
       outputFile_.open("errorTimeSat20.out", std::ios::trunc);
       outputFile_.close();      
       outputFile_.open("errorTimeSatNorm20.out", std::ios::trunc);
@@ -280,6 +280,10 @@ namespace Dumux {
       outputFile_.open("errorTimePress20.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("errorTimePressNorm20.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("errorTimeCapPress20.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("errorTimeCapPressNorm20.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("timeZp20.out", std::ios::trunc);
       outputFile_.close();
@@ -295,6 +299,10 @@ namespace Dumux {
       outputFile_.close();
       outputFile_.open("errorTimePressNorm200.out", std::ios::trunc);
       outputFile_.close();
+      outputFile_.open("errorTimeCapPress200.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("errorTimeCapPressNorm200.out", std::ios::trunc);
+      outputFile_.close();
       outputFile_.open("timeZp200.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("satProfiles.out", std::ios::trunc);
@@ -302,6 +310,8 @@ namespace Dumux {
       outputFile_.open("relPermProfiles.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("pressProfiles.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("capPressProfiles.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("errorSat.out", std::ios::trunc);
       outputFile_.close();
@@ -314,6 +324,10 @@ namespace Dumux {
       outputFile_.open("errorPress.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("errorPressNorm.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("errorCapPress.out", std::ios::trunc);
+      outputFile_.close();
+      outputFile_.open("errorCapPressNorm.out", std::ios::trunc);
       outputFile_.close();
       outputFile_.open("zp.out", std::ios::trunc);
       outputFile_.close();
@@ -344,7 +358,7 @@ namespace Dumux {
     {
       ParentType::init();
 
-      // store initial CPU time (Zakaria 22-08-12)
+      // store initial CPU time (Zakaria 2022-08-12)
       beginCPU_ = std::chrono::high_resolution_clock::now();
       ////
 
@@ -354,7 +368,7 @@ namespace Dumux {
       if(plotFluidMatrixInteractions)
 	this->spatialParams().plotMaterialLaw();
 
-      // initialize the Newton first guess to calculate the gas plume height (Zakaria 22-08-12)
+      // initialize the Newton first guess to calculate the gas plume height (Zakaria 2022-08-12)
       Scalar domainHeight = this->bBoxMax()[dim - 1];
       gasPlumeDistTemp_.resize(numberOfColumns_); // temporary value of gasPlumeDist to be updated at each time step
       for (int i = 0; i < numberOfColumns_; i++) 
@@ -363,7 +377,7 @@ namespace Dumux {
 	}
       ////
 
-      // initialize column counter used to store solution at only one time step (Zakaria 22-08-12)
+      // initialize column counter used to store solution at only one time step (Zakaria 2022-08-12)
       colCounter_ = 0;
       ////
     }
@@ -585,7 +599,7 @@ namespace Dumux {
       //         }
       //
 
-      // store time in result files (Zakarai 2022-08-12)
+      // store time in result files (Zakarai 2022-08-12 and 2022-08-30)
       outputFile_.open("errorTimeSat20.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
@@ -602,6 +616,12 @@ namespace Dumux {
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("errorTimePressNorm20.out", std::ios::app);
+      outputFile_ << this->timeManager().time()/segTime_;
+      outputFile_.close();
+      outputFile_.open("errorTimeCapPress20.out", std::ios::app);
+      outputFile_ << this->timeManager().time()/segTime_;
+      outputFile_.close();
+      outputFile_.open("errorTimeCapPressNorm20.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("timeZp20.out", std::ios::app);
@@ -625,6 +645,12 @@ namespace Dumux {
       outputFile_.open("errorTimePressNorm200.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
+      outputFile_.open("errorTimeCapPress200.out", std::ios::app);
+      outputFile_ << this->timeManager().time()/segTime_;
+      outputFile_.close();
+      outputFile_.open("errorTimeCapPressNorm200.out", std::ios::app);
+      outputFile_ << this->timeManager().time()/segTime_;
+      outputFile_.close();
       outputFile_.open("timeZp200.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
@@ -644,6 +670,12 @@ namespace Dumux {
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("errorPressNorm.out", std::ios::app);
+      outputFile_ << this->timeManager().time()/segTime_;
+      outputFile_.close();
+      outputFile_.open("errorCapPress.out", std::ios::app);
+      outputFile_ << this->timeManager().time()/segTime_;
+      outputFile_.close();
+      outputFile_.open("errorCapPressNorm.out", std::ios::app);
       outputFile_ << this->timeManager().time()/segTime_;
       outputFile_.close();
       outputFile_.open("zp.out", std::ios::app);
@@ -668,11 +700,13 @@ namespace Dumux {
       //      Scalar velocityWVerticalMax[numberOfColumns_];
       //      Scalar velocityWVerticalMaxTotal;
       
-      // initialize error arrays for pressure criterion - only used for capillary fringe model - and normalized saturation and relative permeability criteria (Zakaria 2022-08-12)
+      // initialize error arrays for pressure criteria - only used for capillary fringe model - and normalized saturation and relative permeability criteria (Zakaria 2022-08-12 and 2022-08-30)
       Scalar errorSatNorm[numberOfColumns_];
       Scalar errorRelPermNorm[numberOfColumns_];
       Scalar errorPress[numberOfColumns_];
       Scalar errorPressNorm[numberOfColumns_];
+      Scalar errorCapPress[numberOfColumns_];
+      Scalar errorCapPressNorm[numberOfColumns_];
       ////
 
       //initialize/reset average column saturation
@@ -686,11 +720,13 @@ namespace Dumux {
 	  //             velocityWVerticalMax[i] = 0.0;
 	  //             velocityWVerticalMaxTotal = 0.0;
 
-	  // fill additional error arrays with zeros (Zakaria 2022-08-12)
+	  // fill additional error arrays with zeros (Zakaria 2022-08-12 and 2022-08-30)
 	  errorSatNorm[i] = 0.0;
 	  errorRelPermNorm[i] = 0.0;
 	  errorPress[i] = 0.0;
 	  errorPressNorm[i] = 0.0;
+	  errorCapPress[i] = 0.0;
+	  errorCapPressNorm[i] = 0.0;
 	  /////
 	}
       Scalar averageSatTotal = 0.0;
@@ -732,7 +768,7 @@ namespace Dumux {
 	  double deltaZ = domainHeight/numberOfCells[dim - 1];
 	  Scalar resSatW = this->spatialParams().materialLawParams(it->second).swr();
 
-	  // set the Newton initial guess to calculate plume height (Zakaria 22-08-12)
+	  // set the Newton initial guess to calculate plume height (Zakaria 2022-08-12)
 	  Scalar gasPlumeDist = calculateGasPlumeDist(dummy_,averageSatColumn[i],gasPlumeDistTemp_[i]);
 	  //gasPlumeDistTemp_[i] = std::min(0.99*domainHeight,gasPlumeDist); // update new temporary height
 	  gasPlumeDistTemp_[i] = domainHeight/2.0;
@@ -741,10 +777,11 @@ namespace Dumux {
 	  //calculate error to VE situation
 	  it = mapColumns_.lower_bound(i);
 
-	  // store the bottom element of column i to compute coarse pressure later (Zakaria 22-08-12)	  
+	  // store the bottom element of column i to compute coarse pressure later (Zakaria 2022-08-12 and 2022-08-30)	  
 	  Element veElement = mapColumns_.lower_bound(i)->second;
 	  int eIdxGlobal = this->variables().index(veElement);
 	  Scalar coarsePressW = this->variables().cellData(eIdxGlobal).pressure(wPhaseIdx);
+	  Scalar bottomPressW = reconstPressureW(-deltaZ/2,gasPlumeDist,coarsePressW); //slightly different from coarsePressW when columnModel > 1 since coarsePressW is in this case the pressure at the center of the bottom cell and not the pressure at bottom
 	  ////
 
 	  for (; it != mapColumns_.upper_bound(i); ++it)
@@ -757,8 +794,11 @@ namespace Dumux {
 
 	      Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
 	      Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(element), satW);
-	      // pressure in cell (Zakaria 22-08-12)
+
+	      // pressures in cell (Zakaria 2022-08-12 and 2022-08-30)
 	      Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+	      Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(element), satW);
+	      Scalar pe = this->spatialParams().materialLawParams(element).pe();
 	      ////
 
 	      if(veModel_ == 0)//calculate error for VE model
@@ -811,36 +851,60 @@ namespace Dumux {
 		      errorSatNorm[i] += (1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
 		      errorRelPermNorm[i] += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
 		      ////
+
+		      // capillary pressure errors (Zakaria 2022-08-30)
+		      errorCapPress[i] += std::abs(pc - pe);
+		      errorCapPressNorm[i] += (1/pc)* std::abs(pc - pe);
+		      ////
 		    }
 		  else if (bottom >= gasPlumeDist)
 		    {
-		      errorSat[i] += calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
-		      //errorNumSat[i] += std::abs(deltaZ * satW - calculateSatIntegral(bottom, top, gasPlumeDist));
-		      errorRelPerm[i] += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+		      Scalar eIntSat = calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
+		      errorSat[i] += eIntSat;
+		      //errorNumSat[i] += std::abs(deltaZ * satW - eIntSat);
+
+		      Scalar eIntPerm = calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+		      errorRelPerm[i] += eIntPerm;
 		      
 		      // errors in normalized variables (Zakaria 2022-08-12)
-		      errorSatNorm[i] +=(1/satW) * ( calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist) );
-		      errorRelPermNorm[i] +=(1/krw)*( calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist) );
+		      errorSatNorm[i] +=(1/satW)* eIntSat;
+		      errorRelPermNorm[i] +=(1/krw)* eIntPerm;
+		      ////
+
+		      // capillary pressure errors (Zakaria 2022-08-30)
+		      Scalar eIntPc = calculateErrorCapPressIntegral(bottom, top, pc, gasPlumeDist);
+		      errorCapPress[i] += eIntPc;
+		      errorCapPressNorm[i] += (1/pc)* eIntPc;
 		      ////
 		    }
 		  else
 		    {
 		      Scalar lowerDelta = gasPlumeDist - bottom;
 		      Scalar upperDelta = top - gasPlumeDist;
-		      errorSat[i] += std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-		      //                        errorNumSat[i] += std::abs(deltaZ * satW - (calculateSatIntegral(gasPlumeDist, top, gasPlumeDist) + lowerDelta));
-		      errorRelPerm[i] += std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+
+		      Scalar eIntSat = calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+		      errorSat[i] += std::abs(lowerDelta * (satW - 1.0)) + eIntSat;
+		      //errorNumSat[i] += std::abs(deltaZ * satW - (eIntSat + lowerDelta));
+
+		      Scalar eIntPerm = calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+		      errorRelPerm[i] += std::abs(lowerDelta * (krw - 1.0)) + eIntPerm;
 
 		      // error in normalized variables (Zakaria 2022-08-12)
-		      errorSatNorm[i] += (1/satW)* ( std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
-		      errorRelPermNorm[i] += (1/krw)* ( std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist) );
+		      errorSatNorm[i] += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + eIntSat);
+		      errorRelPermNorm[i] += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + eIntPerm);
+		      ////
+
+		      // capillary pressure errors (Zakaria 2022-08-30)
+		      Scalar eIntPc = calculateErrorCapPressIntegral(gasPlumeDist, top, pc, gasPlumeDist);
+		      errorCapPress[i] += std::abs(pc - pe) + eIntPc;
+		      errorCapPressNorm[i] += (1/pc)* (std::abs(pc - pe) + eIntPc);
 		      ////
 		    }
 		}
-	      // error in pressure (Zakaria 2022-08-26)
-	      Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, coarsePressW);
-	      errorPress[i] += errorInt;
-	      errorPressNorm[i] += (1/pressW)* errorInt;
+	      // error in water pressure (Zakaria 2022-08-26)
+	      Scalar eIntPress = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
+	      errorPress[i] += eIntPress;
+	      errorPressNorm[i] += (1/pressW)* eIntPress;
 	      ////
 
 	      //                 //calculate velocity criterion
@@ -864,11 +928,13 @@ namespace Dumux {
 	  //errorSat[i] = errorSat[i]/satW;
 	  //errorRelPerm[i] = errorRelPerm[i]/krw;
 
-	  // update of pressure and normalized errors (Zakaria 2022-08-12)
+	  // update of pressure and normalized errors (Zakaria 2022-08-12 and 2022-08-30)
 	  errorSatNorm[i] = errorSatNorm[i]/(domainHeight-gasPlumeDist);
 	  errorRelPermNorm[i] = errorRelPermNorm[i]/(domainHeight-gasPlumeDist);
-	  errorPress[i] = errorPress[i]/domainHeight;
-	  errorPressNorm[i] = errorPressNorm[i]/domainHeight;
+	  errorPress[i] = errorPress[i]/(domainHeight-gasPlumeDist);
+	  errorPressNorm[i] = errorPressNorm[i]/(domainHeight-gasPlumeDist);
+	  errorCapPress[i] = errorCapPress[i]/(domainHeight-gasPlumeDist);
+	  errorCapPressNorm[i] = errorCapPressNorm[i]/(domainHeight-gasPlumeDist);
 	  ////
 
 	  if(averageSatColumn[i]>1.0-eps_)
@@ -878,11 +944,13 @@ namespace Dumux {
 	      //errorNumSat[i] = 0.0;
 	      //velocityWVerticalMax[i] = 0.0;
 	      
-	      // set pressure and norm errors to zero if avg saturation is 1 (Zakaria 2022-08-12)
+	      // set pressure and norm errors to zero if avg saturation is 1 (Zakaria 2022-08-12 and 2022-08-30)
 	      errorSatNorm[i] = 0.0;
 	      errorRelPermNorm[i] = 0.0;
 	      errorPress[i] = 0.0;
 	      errorPressNorm[i] = 0.0;
+	      errorCapPress[i] = 0.0;
+	      errorCapPressNorm[i] = 0.0;
 	      ////
 	    }
 
@@ -930,7 +998,7 @@ namespace Dumux {
 	      //                outputFile_ << this->timeManager().time()/segTime_ << " " << velocityWVerticalMax[i] << std::endl;
 	      //                outputFile_.close();
 
-	      // store errors and plume height in files for 20th column (Zakaria 2022-08-12)
+	      // store errors and plume height in files for 20th column (Zakaria 2022-08-12 and 2022-08-30)
 	      outputFile_.open("errorTimeSat20.out", std::ios::app);
 	      outputFile_ << " " << errorSat[i] << std::endl;
 	      outputFile_.close();
@@ -948,6 +1016,12 @@ namespace Dumux {
 	      outputFile_.close();
 	      outputFile_.open("errorTimePressNorm20.out", std::ios::app);
 	      outputFile_ << " " << errorPressNorm[i] << std::endl;
+	      outputFile_.close();
+	      outputFile_.open("errorTimeCapPress20.out", std::ios::app);
+	      outputFile_ << " " << errorCapPress[i]<< std::endl;
+	      outputFile_.close();
+	      outputFile_.open("errorTimeCapPressNorm20.out", std::ios::app);
+	      outputFile_ << " " << errorCapPressNorm[i] << std::endl;
 	      outputFile_.close();
 	      outputFile_.open("timeZp20.out", std::ios::app);
 	      outputFile_ << " " << gasPlumeDist << std::endl;
@@ -1000,7 +1074,7 @@ namespace Dumux {
 	      //                outputFile_ << this->timeManager().time()/segTime_ << " " << velocityWVerticalMax[i] << std::endl;
 	      //                outputFile_.close();
 
-	      // store errors and plume height in files for 200th column (Zakaria 2022-08-12)
+	      // store errors and plume height in files for 200th column (Zakaria 2022-08-12 and 2022-08-30)
 	      outputFile_.open("errorTimeSat200.out", std::ios::app);
 	      outputFile_ << " " << errorSat[i] << std::endl;
 	      outputFile_.close();
@@ -1019,6 +1093,12 @@ namespace Dumux {
 	      outputFile_.open("errorTimePressNorm200.out", std::ios::app);
 	      outputFile_ << " " << errorPressNorm[i] << std::endl;
 	      outputFile_.close();
+	      outputFile_.open("errorTimeCapPress200.out", std::ios::app);
+	      outputFile_ << " " << errorCapPress[i]<< std::endl;
+	      outputFile_.close();
+	      outputFile_.open("errorTimeCapPressNorm200.out", std::ios::app);
+	      outputFile_ << " " << errorCapPressNorm[i] << std::endl;
+	      outputFile_.close();
 	      outputFile_.open("timeZp200.out", std::ios::app);
 	      outputFile_ << " " << gasPlumeDist << std::endl;
 	      outputFile_.close();
@@ -1035,7 +1115,7 @@ namespace Dumux {
 	  //            outputFile_ << " " << velocityWVerticalMax[i];
 	  //            outputFile_.close();
 
-	  // store errors and plume height in files for all columns (Zakaria 2022-08-12)
+	  // store errors and plume height in files for all columns (Zakaria 2022-08-12 and 2022-08-30)
 	  outputFile_.open("errorSat.out", std::ios::app);
 	  outputFile_ << " " << errorSat[i];
 	  outputFile_.close();
@@ -1053,6 +1133,12 @@ namespace Dumux {
 	  outputFile_.close();
 	  outputFile_.open("errorPressNorm.out", std::ios::app);
 	  outputFile_ << " " << errorPressNorm[i];
+	  outputFile_.close();
+	  outputFile_.open("errorCapPress.out", std::ios::app);
+	  outputFile_ << " " << errorCapPress[i];
+	  outputFile_.close();
+	  outputFile_.open("errorCapPressNorm.out", std::ios::app);
+	  outputFile_ << " " << errorCapPressNorm[i];
 	  outputFile_.close();
 	  outputFile_.open("zp.out", std::ios::app);
 	  outputFile_ << " " << gasPlumeDist ;
@@ -1157,7 +1243,7 @@ namespace Dumux {
 	  //            }
 	  //   }
 
-	  // plot profiles at final time (Zakaria 2022-08-12)
+	  // plot profiles at final time (Zakaria 2022-08-12 and 2022-08-30)
 	  if (this->timeManager().time() + this->timeManager().timeStepSize() >= endTime_ && colCounter_ < numberOfColumns_)
 	    {
 	      colCounter_+=1;
@@ -1178,6 +1264,9 @@ namespace Dumux {
 		      outputFile_.open("pressProfiles.out", std::ios::app);
 		      outputFile_ << z << " ";
 		      outputFile_.close();
+		      outputFile_.open("capPressProfiles.out", std::ios::app);
+		      outputFile_ << z << " ";
+		      outputFile_.close();
 		    }
 		}
 
@@ -1190,6 +1279,9 @@ namespace Dumux {
 	      outputFile_.open("pressProfiles.out", std::ios::app);
 	      outputFile_ << std::endl;
 	      outputFile_.close();
+	      outputFile_.open("capPressProfiles.out", std::ios::app);
+	      outputFile_ << std::endl;
+	      outputFile_.close();
 
 	      // store results
 	      typename std::map<int, Element>::iterator it2 = mapColumns_.lower_bound(i);
@@ -1199,6 +1291,7 @@ namespace Dumux {
 		  Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
 		  Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
 		  Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+		  Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(it2->second), satW);
 		  outputFile_.open("satProfiles.out", std::ios::app);
 		  outputFile_ << satW << " ";
 		  outputFile_.close();
@@ -1207,6 +1300,9 @@ namespace Dumux {
 		  outputFile_.close();
 		  outputFile_.open("pressProfiles.out", std::ios::app);
 		  outputFile_ << pressW << " ";
+		  outputFile_.close();
+		  outputFile_.open("capPressProfiles.out", std::ios::app);
+		  outputFile_ << pc << " ";
 		  outputFile_.close();
 		}
 	    }
@@ -1262,7 +1358,7 @@ namespace Dumux {
       //       std::cout << "Error in mass: " << totalMassNExpected - totalMassN << ". ";
 
 
-      // finalize result files (Zakaria 2022-08-12)
+      // finalize result files (Zakaria 2022-08-12 and 2022-08-30)
       outputFile_.open("errorSat.out", std::ios::app);
       outputFile_ << std::endl;
       outputFile_.close();
@@ -1279,6 +1375,12 @@ namespace Dumux {
       outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("errorPressNorm.out", std::ios::app);
+      outputFile_ << std::endl;
+      outputFile_.close();
+      outputFile_.open("errorCapPress.out", std::ios::app);
+      outputFile_ << std::endl;
+      outputFile_.close();
+      outputFile_.open("errorCapPressNorm.out", std::ios::app);
       outputFile_ << std::endl;
       outputFile_.close();
       outputFile_.open("zp.out", std::ios::app);
@@ -1489,15 +1591,35 @@ namespace Dumux {
       int intervalNumber = 10;
       Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
 
-      Scalar PressIntegral = 0.0;
+      Scalar pressIntegral = 0.0;
       for(int count=0; count<intervalNumber; count++ )
         {
-	  PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist, coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ, gasPlumeDist, coarsePressW))/2.0 - pressW);
+	  pressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist, coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ, gasPlumeDist, coarsePressW))/2.0 - pressW);
 
         }
-      PressIntegral = PressIntegral * deltaZ;
+      pressIntegral = pressIntegral * deltaZ;
 
-      return PressIntegral;
+      return pressIntegral;
+    }
+    ////
+
+    // Calculates integral of difference of capillary pressure over z (Zakaria 2022-08-30)
+    /*! \brief Calculates integral of difference of capillary Pressure over z
+     *
+     */
+    Scalar calculateErrorCapPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pc, Scalar gasPlumeDist)
+    {
+      int intervalNumber = 10;
+      Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
+
+      Scalar capPressIntegral = 0.0;
+      for(int count=0; count<intervalNumber; count++ )
+	{
+	  capPressIntegral += std::abs((reconstCapPressure(lowerBound + count*deltaZ, gasPlumeDist) + reconstCapPressure(lowerBound + (count+1)*deltaZ, gasPlumeDist))/2.0 - pc);
+	}
+      capPressIntegral = capPressIntegral * deltaZ;
+
+      return capPressIntegral;
     }
     ////
 
@@ -1556,26 +1678,52 @@ namespace Dumux {
       Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
       Scalar gravity = this->gravity().two_norm();
 
-      Scalar reconstPressure = coarsePressW; //reconstruct phase pressures for no ve model
+      Scalar reconstPressure = coarsePressW;
 
-      if(veModel_ ==0 && height <= gasPlumeDist)
+      if(veModel_ == 0 && height <= gasPlumeDist)
         {
 	  reconstPressure -= densityW * gravity * height;
         }
-      else if(veModel_ == 1 && height <= gasPlumeDist)
-        {
-	  reconstPressure -= densityW * gravity * height;
-        }
-      else if (veModel_ == 0 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for sharp interface ve model
+      else if (veModel_ == 0 && height > gasPlumeDist)
         {
 	  reconstPressure -= densityW * gravity * gasPlumeDist + densityNw * gravity * (height - gasPlumeDist);
         }
-      else if (veModel_ == 1 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for capillary fringe model
+      else if(veModel_ == 1)
         {
 	  reconstPressure -= densityW * gravity * height;
         }
 
       return reconstPressure;
+    }
+    ////
+
+    // Calculation of the reconstructed capillary pressure (Zakaria 2022-08-30)
+    /*! \brief Calculation of the water reconstructed capillary pressure
+     *
+     *
+     */
+    Scalar reconstCapPressure(Scalar height, Scalar gasPlumeDist)
+    {
+      GlobalPosition globalPos = dummy_.geometry().center();
+      Scalar pRef = this->referencePressureAtPos(globalPos);
+      Scalar tempRef = this->temperatureAtPos(globalPos);
+      Scalar densityW = WettingPhase::density(tempRef, pRef);
+      Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+      Scalar gravity = this->gravity().two_norm();
+      Scalar entryP = this->spatialParams().materialLawParams(dummy_).pe();
+      
+      Scalar reconstCapPressure = 0.0;
+
+      if(veModel_ == 1 && height <= gasPlumeDist)
+	{
+	  reconstCapPressure = entryP;
+	}
+      else if (veModel_ == 1 && height > gasPlumeDist)
+	{
+	  reconstCapPressure = entryP + (densityW - densityNw)*gravity*(height - gasPlumeDist);
+	}
+
+      return reconstCapPressure;
     }
     ////
 

@@ -46,7 +46,7 @@ MinLevel = 0 # [-] minimum level of refinement
 MaxLevel = 5 # [-] maximum level of refinement
 RefineTolerance = 0.1 # threshold for refinement criterion
 CoarsenTolerance = 0.01 # threshold for coarsening criterion
-AbsoluteError = 0.001 # accepted error in profile
+AbsoluteError = 0.03 # accepted error in profile
 
 [Vtk]
 OutputLevel = 2 # 0 -> only primary variables (default), 1 -> also secondary variables

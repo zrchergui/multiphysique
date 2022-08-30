@@ -127,11 +127,13 @@ namespace Dumux
                     Scalar errorSat = 0.0;
                     Scalar errorRelPerm = 0.0;
 
-                    // initialize the additional criteria to choose from - pressure only for capillary fringe model (Zakaria 2022-08-12)
+                    // initialize the additional criteria to choose from - pressure only for capillary fringe model (Zakaria 2022-08-12 and 2022-08-30)
                     Scalar errorSatNorm = 0.0;
                     Scalar errorRelPermNorm = 0.0;
                     Scalar errorPress = 0.0;
                     Scalar errorPressNorm = 0.0;
+                    Scalar errorCapPress = 0.0;
+                    Scalar errorCapPressNorm = 0.0;
                     ////
 
                     it = mapAllColumns.lower_bound(i);
@@ -156,6 +158,8 @@ namespace Dumux
                             Scalar krw = MaterialLaw::krw(problem_.spatialParams().materialLawParams(element), satW);
                             // pressure in cell (Zakaria 2022-08-12)
                             Scalar pressW = problem_.variables().cellData(globalIdxI).pressure(wPhaseIdx);
+                            Scalar pc = MaterialLaw::pc(problem_.spatialParams().materialLawParams(element), satW);
+                            Scalar pe = problem_.spatialParams().materialLawParams(element).pe();
                             ////
 
                             if(veModel == 0)//calculate error for VE model
@@ -204,44 +208,70 @@ namespace Dumux
                                             errorSatNorm += (1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
                                             errorRelPermNorm += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
                                             ////
+                                            
+                                            // capillary pressure errors (Zakaria 2022-08-30)
+                                            errorCapPress += std::abs(pc - pe);
+                                            errorCapPressNorm += (1/pc)* std::abs(pc - pe);
+                                            ////
                                         }
                                     else if (bottom >= gasPlumeDist)
                                         {
-                                            errorSat += calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
-                                            errorRelPerm += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+                                            Scalar eIntSat = calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
+                                            errorSat += eIntSat;
+
+                                            Scalar eIntPerm = calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+                                            errorRelPerm += eIntPerm;
                         
                                             // errors in normalized variables (Zakaria 2022-08-12)
-                                            errorSatNorm += (1/satW)* calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
-                                            errorRelPermNorm += (1/krw)* calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+                                            errorSatNorm += (1/satW)* eIntSat;
+                                            errorRelPermNorm += (1/krw)* eIntPerm;
+                                            ////
+
+                                            // capillary pressure errors (Zakaria 2022-08-30)
+                                            Scalar eIntPc = calculateErrorCapPressIntegral(bottom, top, pc, gasPlumeDist);
+                                            errorCapPress += eIntPc;
+                                            errorCapPressNorm += (1/pc)* eIntPc;
                                             ////
                                         }
                                     else
                                         {
                                             Scalar lowerDelta = gasPlumeDist - bottom;
                                             Scalar upperDelta = top - gasPlumeDist;
-                                            errorSat += std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-                                            errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+
+                                            Scalar eIntSat = calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+                                            errorSat += std::abs(lowerDelta * (satW - 1.0)) + eIntSat;
+
+                                            Scalar eIntPerm = calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+                                            errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + eIntPerm;
 
                                             // error in normalized variables (Zakaria 2022-08-12)
                                             errorSatNorm += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
                                             errorRelPermNorm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist));
                                             ////
+
+                                            // capillary pressure errors (Zakaria 2022-08-30)
+                                            Scalar eIntPc = calculateErrorCapPressIntegral(gasPlumeDist, top, pc, gasPlumeDist);
+                                            errorCapPress += std::abs(pc - pe) + eIntPc;
+                                            errorCapPressNorm += (1/pc)* (std::abs(pc - pe) + eIntPc);
+                                            ////
                                         }
                                 }
-                            // error in pressure (Zakaria 2022-08-26)
-                            Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
-                            errorPress += errorInt;
-                            errorPressNorm += (1/pressW)* errorInt;
+                            // error in water pressure (Zakaria 2022-08-26)
+                            Scalar eIntPress = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
+                            errorPress += eIntPress;
+                            errorPressNorm += (1/pressW)* eIntPress;
                             ////
                         }
-                    //indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
+                    indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
 
                     // update of pressure and normalized errors (Zakaria 2022-08-12)
                     //indicatorVector_[i] =  errorSatNorm/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] =  errorRelPermNorm/(domainHeight - gasPlumeDist);
                     //indicatorVector_[i] =  errorPress/(domainHeight - gasPlumeDist);
-                    indicatorVector_[i] =  errorPressNorm/(domainHeight - gasPlumeDist);
+                    //indicatorVector_[i] =  errorPressNorm/(domainHeight - gasPlumeDist);
+                    //indicatorVector_[i] =  errorCapPress/(domainHeight - gasPlumeDist);
+                    //indicatorVector_[i] =  errorCapPressNorm/(domainHeight - gasPlumeDist);
                     ////
                 }
             Scalar absoluteError = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, Scalar, GridAdapt, AbsoluteError);
@@ -399,14 +429,34 @@ namespace Dumux
             int intervalNumber = 10;
             Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
 
-            Scalar PressIntegral = 0.0;
+            Scalar pressIntegral = 0.0;
             for(int count=0; count<intervalNumber; count++ )
                 {
-                    PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist, coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ, gasPlumeDist, coarsePressW))/2.0 - pressW);
+                    pressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ, gasPlumeDist, coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ, gasPlumeDist, coarsePressW))/2.0 - pressW);
                 }
-            PressIntegral = PressIntegral * deltaZ;
+            pressIntegral = pressIntegral * deltaZ;
 
-            return PressIntegral;
+            return pressIntegral;
+        }
+        ////
+
+        // Calculates integral of difference of capillary pressure over z (Zakaria 2022-08-30)
+        /*! \brief Calculates integral of difference of capillary Pressure over z
+         *
+         */
+        Scalar calculateErrorCapPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pc, Scalar gasPlumeDist)
+        {
+            int intervalNumber = 10;
+            Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
+
+            Scalar capPressIntegral = 0.0;
+            for(int count=0; count<intervalNumber; count++ )
+                {
+                    capPressIntegral += std::abs((reconstCapPressure(lowerBound + count*deltaZ, gasPlumeDist) + reconstCapPressure(lowerBound + (count+1)*deltaZ, gasPlumeDist))/2.0 - pc);
+                }
+            capPressIntegral = capPressIntegral * deltaZ;
+
+            return capPressIntegral;
         }
         ////
 
@@ -466,26 +516,53 @@ namespace Dumux
             Scalar gravity = problem_.gravity().two_norm();
             int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
 
-            Scalar reconstPressure = coarsePressW; //reconstruct phase pressures for no ve model
+            Scalar reconstPressure = coarsePressW;
 
             if(veModel == 0 && height <= gasPlumeDist)
                 {
                     reconstPressure -= densityW * gravity * height;
                 }
-            else if(veModel == 1 && height <= gasPlumeDist)
-                {
-                    reconstPressure -= densityW * gravity * height;
-                }
-            else if (veModel == 0 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for sharp interface ve model
+            else if (veModel == 0 && height > gasPlumeDist)
                 {
                     reconstPressure -= densityW * gravity * gasPlumeDist + densityNw * gravity * (height - gasPlumeDist);
                 }
-            else if (veModel == 1 && height > gasPlumeDist) //reconstruct non-wetting phase pressure for capillary fringe model
+            else if(veModel == 1)
                 {
                     reconstPressure -= densityW * gravity * height;
                 }
-
+            
             return reconstPressure;
+        }
+        ////
+
+        // Calculation of the reconstructed capillary pressure (Zakaria 2022-08-30)
+        /*! \brief Calculation of the water reconstructed capillary pressure
+         *
+         *
+         */
+        Scalar reconstCapPressure(Scalar height, Scalar gasPlumeDist)
+        {
+            GlobalPosition globalPos = dummy_.geometry().center();
+            Scalar pRef = problem_.referencePressureAtPos(globalPos);
+            Scalar tempRef = problem_.temperatureAtPos(globalPos);
+            Scalar densityW = WettingPhase::density(tempRef, pRef);
+            Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+            Scalar gravity = problem_.gravity().two_norm();
+            Scalar entryP = problem_.spatialParams().materialLawParams(dummy_).pe();
+            int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
+
+            Scalar reconstCapPressure = 0.0;
+
+            if(veModel == 1 && height <= gasPlumeDist)
+                {
+                    reconstCapPressure = entryP;
+                }
+            else if (veModel == 1 && height > gasPlumeDist)
+                {
+                    reconstCapPressure = entryP + (densityW - densityNw)*gravity*(height - gasPlumeDist);
+                }
+
+            return reconstCapPressure;
         }
         ////
 

@@ -283,7 +283,7 @@ namespace Dumux {
             outputFile_.open("numberOfCells.out", std::ios::trunc);
             outputFile_.close();
 
-            //// create files to store results (Zakaria 2022-08-25)
+            //// create files to store results (Zakaria 2022-08-25 and 2022-08-30)
             outputFile_.open("timeCriterion20.out", std::ios::trunc);
             outputFile_.close();      
             outputFile_.open("timeZp20.out", std::ios::trunc);
@@ -297,6 +297,8 @@ namespace Dumux {
             outputFile_.open("relPermProfiles.out", std::ios::trunc);
             outputFile_.close();
             outputFile_.open("pressProfiles.out", std::ios::trunc);
+            outputFile_.close();
+            outputFile_.open("capPressProfiles.out", std::ios::trunc);
             outputFile_.close();
             outputFile_.open("criterion.out", std::ios::trunc);
             outputFile_.close();
@@ -701,25 +703,6 @@ namespace Dumux {
             outputFile_.close();
             ////
             
-            // initialize error arrays for pressure criterion - only used for capillary fringe model - and saturation and relative permeability criteria (Zakaria 2022-08-25)
-            int numberOfColumns = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells)[0];
-            Scalar errorSat[numberOfColumns];
-            Scalar errorRelPerm[numberOfColumns];
-            Scalar errorSatNorm[numberOfColumns];
-            Scalar errorRelPermNorm[numberOfColumns];
-            Scalar errorPress[numberOfColumns];
-            Scalar errorPressNorm[numberOfColumns];
-            for (int i = 0; i < numberOfColumns; i++)
-                {
-                    errorSat[i] = 0.0;
-                    errorRelPerm[i] = 0.0;
-                    errorSatNorm[i] = 0.0;
-                    errorRelPermNorm[i] = 0.0;
-                    errorPress[i] = 0.0;
-                    errorPressNorm[i] = 0.0;
-                }
-            ////
-
             //write out average column saturation
             CellArray numberOfCells = GET_RUNTIME_PARAM_FROM_GROUP_CSTRING(TypeTag, CellArray, "Grid", Cells);
             std::vector<Scalar> averageSatColumn(0);
@@ -834,7 +817,8 @@ namespace Dumux {
             //
 
 
-            // calculation of criteria (Zakaria 2022-08-25)
+            // calculation of criteria (Zakaria 2022-08-25 and 2022-08-30)
+            int numberOfColumns =numberOfCells[0];
             criterion_.resize(numberOfColumns);
             for (int i = 0; i < numberOfColumns; i++) {
                 criterion_[i] = 0.0;
@@ -893,6 +877,9 @@ namespace Dumux {
                                                 outputFile_.open("pressProfiles.out", std::ios::app);
                                                 outputFile_ << z << " ";
                                                 outputFile_.close();
+                                                outputFile_.open("capPressProfiles.out", std::ios::app);
+                                                outputFile_ << z << " ";
+                                                outputFile_.close();
 
                                                 zCenter_[k] = z;
                                                 k += 1;
@@ -909,6 +896,9 @@ namespace Dumux {
                                 outputFile_.open("pressProfiles.out", std::ios::app);
                                 outputFile_ << std::endl;
                                 outputFile_.close();
+                                outputFile_.open("capPressProfiles.out", std::ios::app);
+                                outputFile_ << std::endl;
+                                outputFile_.close();
 
                                 // iterate over cells in column and store results
                                 typename std::map<int, Element>::iterator it2 = mapAllColumns_.lower_bound(i);
@@ -917,7 +907,7 @@ namespace Dumux {
                                     Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
                                     Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
                                     Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
-
+                                    Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(it2->second), satW);
                                     outputFile_.open("satProfiles.out", std::ios::app);
                                     outputFile_ << satW << " ";
                                     outputFile_.close();
@@ -926,6 +916,9 @@ namespace Dumux {
                                     outputFile_.close();
                                     outputFile_.open("pressProfiles.out", std::ios::app);
                                     outputFile_ << pressW << " ";
+                                    outputFile_.close();
+                                    outputFile_.open("capPressProfiles.out", std::ios::app);
+                                    outputFile_ << pc << " ";
                                     outputFile_.close();
                                 }
                             }
@@ -978,6 +971,9 @@ namespace Dumux {
                                 outputFile_.open("pressProfiles.out", std::ios::app);
                                 outputFile_ << std::endl;
                                 outputFile_.close();
+                                outputFile_.open("capPressProfiles.out", std::ios::app);
+                                outputFile_ << std::endl;
+                                outputFile_.close();
 
                                 // store results (only one cell here)
                                 for (int k = 0; k < std::pow(2,maxLevel); ++k) 
@@ -986,7 +982,7 @@ namespace Dumux {
                                         Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it->second), satW);
                                         Element veElement = mapAllColumns_.lower_bound(i)->second;
                                         Scalar pressW = reconstPressureW(zCenter_[k],gasPlumeDist,coarsePressW);
-
+                                        Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(it->second), satW);
                                         outputFile_.open("satProfiles.out", std::ios::app);
                                         outputFile_ << satW << " ";
                                         outputFile_.close();
@@ -996,6 +992,9 @@ namespace Dumux {
                                         outputFile_.open("pressProfiles.out", std::ios::app);
                                         outputFile_ << pressW << " ";
                                         outputFile_.close();
+                                        outputFile_.open("capPressProfiles.out", std::ios::app);
+                                        outputFile_ << pc << " ";
+                                        outputFile_.close();
                                     }
                             }
                         ////////
@@ -1003,13 +1002,15 @@ namespace Dumux {
                     }
 
 
-                //// initialize all criteria to select from (Zakaria 2022-12-25)
+                //// initialize all criteria to select from (Zakaria 2022-12-25 and 2022-08-30)
                 Scalar errorSat = 0;
                 Scalar errorSatNorm = 0;
                 Scalar errorRelPerm = 0;
                 Scalar errorRelPermNorm = 0;
                 Scalar errorPress = 0;
                 Scalar errorPressNorm = 0;
+                Scalar errorCapPress = 0;
+                Scalar errorCapPressNorm = 0;
                 ////////
 
                 double deltaZ = domainHeight/(numberOfCells[dim - 1]*std::pow(2, maxLevel));
@@ -1027,6 +1028,8 @@ namespace Dumux {
                     Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
                     Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(element), satW);
                     Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+                    Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(element), satW);
+                    Scalar pe = this->spatialParams().materialLawParams(element).pe();
 
                     if (veModel == sharpInterface) // calculate error for VE model
                         {
@@ -1056,33 +1059,48 @@ namespace Dumux {
                                 errorRelPerm += std::abs(deltaZ * (krw - 1.0));
                                 errorSatNorm +=(1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
                                 errorRelPermNorm += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
+                                errorCapPress += std::abs(pc - pe);
+                                errorCapPressNorm += (1/pc)* std::abs(pc - pe);
                             } else if (bottom >= gasPlumeDist) {
-                                errorSat += calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
-                                errorRelPerm += calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
-                                errorSatNorm += (1/satW)* calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
-                                errorRelPermNorm += (1/krw)* calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+                                Scalar eIntSat = calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
+                                Scalar eIntPerm = calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
+                                Scalar eIntPc = calculateErrorCapPressIntegral(bottom, top, pc, gasPlumeDist);
+                                errorSat += eIntSat;
+                                errorRelPerm += eIntPerm;
+                                errorSatNorm += (1/satW)* eIntSat;
+                                errorRelPermNorm += (1/krw)* eIntPerm;
+                                errorCapPress += eIntPc;
+                                errorCapPressNorm += (1/pc)* eIntPc;
                             } else {
                                 Scalar lowerDelta = gasPlumeDist - bottom;
                                 Scalar upperDelta = top - gasPlumeDist;
-                                errorSat += std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-                                errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
-                                errorSatNorm += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist));
-                                errorRelPerm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist)); 
+
+                                Scalar eIntSat = calculateErrorSatIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+                                Scalar eIntPerm = calculateErrorKrwIntegral(gasPlumeDist, top, satW, gasPlumeDist);
+                                Scalar eIntPc = calculateErrorCapPressIntegral(gasPlumeDist, top, pc, gasPlumeDist);
+                                errorSat += std::abs(lowerDelta * (satW - 1.0)) + eIntSat;
+                                errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + eIntPerm;
+                                errorSatNorm += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + eIntSat);
+                                errorRelPerm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + eIntPerm); 
+                                errorCapPress += std::abs(pc - pe) + eIntPc;
+                                errorCapPressNorm += (1/pc)* (std::abs(pc - pe) + eIntPc);
                             }
                         }
-                    Scalar errorInt = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
-                    errorPress += errorInt;
-                    errorPressNorm += (1/pressW)* errorInt;
+                    Scalar eIntPress = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
+                    errorPress += eIntPress;
+                    errorPressNorm += (1/pressW)* eIntPress;
                 }
 
 
                 //// select which criterion is being used (Zakaria 2022-08-25)
-                //criterion_[i] = errorSat / (domainHeight - gasPlumeDist);
+                criterion_[i] = errorSat / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorRelPerm / (domainHeight - gasPlumeDist);
                 //criterion_[i] =  errorPress / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorSatNorm / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorRelPermNorm / (domainHeight - gasPlumeDist);
-                criterion_[i] =  errorPressNorm / (domainHeight - gasPlumeDist);
+                //criterion_[i] =  errorPressNorm / (domainHeight - gasPlumeDist);
+                //criterion_[i] =  errorCapPress / (domainHeight - gasPlumeDist);
+                //criterion_[i] =  errorCapPressNorm / (domainHeight - gasPlumeDist);
                 ////////
                 
                 //// store errors and plume height in files for 20th and 200th columns (Zakaria 2022-08-25)
@@ -1129,6 +1147,9 @@ namespace Dumux {
                         outputFile_.open("pressProfiles.out", std::ios::app);
                         outputFile_ << std::endl;
                         outputFile_.close();
+                        outputFile_.open("capPressProfiles.out", std::ios::app);
+                        outputFile_ << std::endl;
+                        outputFile_.close();
 
                         // store results (only one cell here)
                         // store results
@@ -1139,6 +1160,7 @@ namespace Dumux {
                                 Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
                                 Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
                                 Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
+                                Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(it2->second), satW);
                                 outputFile_.open("satProfiles.out", std::ios::app);
                                 outputFile_ << satW << " ";
                                 outputFile_.close();
@@ -1147,6 +1169,9 @@ namespace Dumux {
                                 outputFile_.close();
                                 outputFile_.open("pressProfiles.out", std::ios::app);
                                 outputFile_ << pressW << " ";
+                                outputFile_.close();
+                                outputFile_.open("capPressProfiles.out", std::ios::app);
+                                outputFile_ << pc << " ";
                                 outputFile_.close();
                             }
                     }
@@ -1429,14 +1454,34 @@ namespace Dumux {
             int intervalNumber = 10;
             Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
 
-            Scalar PressIntegral = 0.0;
+            Scalar pressIntegral = 0.0;
             for(int count=0; count<intervalNumber; count++ )
                 {
-                    PressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ,gasPlumeDist,coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ,gasPlumeDist,coarsePressW))/2.0 - pressW);
+                    pressIntegral += std::abs((reconstPressureW(lowerBound + count*deltaZ,gasPlumeDist,coarsePressW) + reconstPressureW(lowerBound + (count+1)*deltaZ,gasPlumeDist,coarsePressW))/2.0 - pressW);
                 }
-            PressIntegral = PressIntegral * deltaZ;
+            pressIntegral = pressIntegral * deltaZ;
 
-            return PressIntegral;
+            return pressIntegral;
+        }
+        ////
+
+        // Calculates integral of difference of capillary pressure over z (Zakaria 2022-08-30)
+        /*! \brief Calculates integral of difference of capillary Pressure over z
+         *
+         */
+        Scalar calculateErrorCapPressIntegral(Scalar lowerBound, Scalar upperBound, Scalar pc, Scalar gasPlumeDist)
+        {
+            int intervalNumber = 10;
+            Scalar deltaZ = (upperBound - lowerBound)/intervalNumber;
+
+            Scalar capPressIntegral = 0.0;
+            for(int count=0; count<intervalNumber; count++ )
+                {
+                    capPressIntegral += std::abs((reconstCapPressure(lowerBound + count*deltaZ, gasPlumeDist) + reconstCapPressure(lowerBound + (count+1)*deltaZ, gasPlumeDist))/2.0 - pc);
+                }
+            capPressIntegral = capPressIntegral * deltaZ;
+
+            return capPressIntegral;
         }
         ////
 
@@ -1495,26 +1540,53 @@ namespace Dumux {
             Scalar gravity = this->gravity().two_norm();
             int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
 
-            Scalar reconstPressure = coarsePressW; //reconstruct phase pressures for no ve model
+            Scalar reconstPressure = coarsePressW; 
 
             if(veModel == sharpInterface && height <= gasPlumeDist)
                 {
                     reconstPressure -= densityW * gravity * height;
                 }
-            else if(veModel == capillaryFringe && height <= gasPlumeDist)
-                {
-                    reconstPressure -= densityW * gravity * height;
-                }
-            else if (veModel == sharpInterface && height > gasPlumeDist) //reconstruct non-wetting phase pressure for sharp interface ve model
+            else if (veModel == sharpInterface && height > gasPlumeDist)
                 {
                     reconstPressure -= densityW * gravity * gasPlumeDist + densityNw * gravity * (height - gasPlumeDist);
                 }
-            else if (veModel == capillaryFringe && height > gasPlumeDist) //reconstruct non-wetting phase pressure for capillary fringe model
+            else if(veModel == capillaryFringe)
                 {
                     reconstPressure -= densityW * gravity * height;
                 }
 
             return reconstPressure;
+        }
+        ////
+
+        // Calculation of the reconstructed capillary pressure (Zakaria 2022-08-30)
+        /*! \brief Calculation of the water reconstructed capillary pressure
+         *
+         *
+         */
+        Scalar reconstCapPressure(Scalar height, Scalar gasPlumeDist)
+        {
+            GlobalPosition globalPos = dummy_.geometry().center();
+            Scalar pRef = this->referencePressureAtPos(globalPos);
+            Scalar tempRef = this->temperatureAtPos(globalPos);
+            Scalar densityW = WettingPhase::density(tempRef, pRef);
+            Scalar densityNw = NonWettingPhase::density(tempRef, pRef);
+            Scalar gravity = this->gravity().two_norm();
+            Scalar entryP = this->spatialParams().materialLawParams(dummy_).pe();
+            int veModel = GET_RUNTIME_PARAM_FROM_GROUP(TypeTag, int, VE, VEModel);
+
+            Scalar reconstCapPressure = 0.0;
+
+            if(veModel == 1 && height <= gasPlumeDist)
+                {
+                    reconstCapPressure = entryP;
+                }
+            else if (veModel == 1 && height > gasPlumeDist)
+                {
+                    reconstCapPressure = entryP + (densityW - densityNw)*gravity*(height - gasPlumeDist);
+                }
+
+            return reconstCapPressure;
         }
         ////
 
