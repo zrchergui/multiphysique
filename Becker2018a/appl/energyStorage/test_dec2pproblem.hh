@@ -797,8 +797,8 @@ namespace Dumux {
 
 	      // pressures in cell (Zakaria 2022-08-12 and 2022-08-30)
 	      Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
-	      Scalar pc = 1./MaterialLaw::pc(this->spatialParams().materialLawParams(element), satW);
-	      Scalar pe = 1./this->spatialParams().materialLawParams(element).pe();
+	      Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(element), satW);
+	      Scalar pe = this->spatialParams().materialLawParams(element).pe();
 	      ////
 
 	      if(veModel_ == 0)//calculate error for VE model
@@ -1291,7 +1291,7 @@ namespace Dumux {
 		  Scalar satW = this->variables().cellData(globalIdxI).saturation(wPhaseIdx);
 		  Scalar krw = MaterialLaw::krw(this->spatialParams().materialLawParams(it2->second), satW);
 		  Scalar pressW = this->variables().cellData(globalIdxI).pressure(wPhaseIdx);
-		  Scalar pc = 1./MaterialLaw::pc(this->spatialParams().materialLawParams(it2->second), satW);
+		  Scalar pc = MaterialLaw::pc(this->spatialParams().materialLawParams(it2->second), satW);
 		  outputFile_.open("satProfiles.out", std::ios::app);
 		  outputFile_ << satW << " ";
 		  outputFile_.close();
@@ -1723,7 +1723,7 @@ namespace Dumux {
 	  reconstCapPressure = entryP + (densityW - densityNw)*gravity*(height - gasPlumeDist);
 	}
 
-      return 1./reconstCapPressure;
+      return reconstCapPressure;
     }
     ////
 
