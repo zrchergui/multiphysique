@@ -1059,8 +1059,8 @@ namespace Dumux {
                                 errorRelPerm += std::abs(deltaZ * (krw - 1.0));
                                 errorSatNorm +=(1/satW)* ( std::abs(deltaZ * (satW - 1.0)) ) ;
                                 errorRelPermNorm += (1/krw)* ( std::abs(deltaZ * (krw - 1.0)) ) ;
-                                errorCapPress += std::abs(pc - pe);
-                                errorCapPressNorm += (1/pc)* std::abs(pc - pe);
+                                errorCapPress += std::abs(deltaZ * (pc - pe));
+                                errorCapPressNorm += (1/pc)* std::abs(deltaZ * (pc - pe));
                             } else if (bottom >= gasPlumeDist) {
                                 Scalar eIntSat = calculateErrorSatIntegral(bottom, top, satW, gasPlumeDist);
                                 Scalar eIntPerm = calculateErrorKrwIntegral(bottom, top, satW, gasPlumeDist);
@@ -1082,8 +1082,8 @@ namespace Dumux {
                                 errorRelPerm += std::abs(lowerDelta * (krw - 1.0)) + eIntPerm;
                                 errorSatNorm += (1/satW)* (std::abs(lowerDelta * (satW - 1.0)) + eIntSat);
                                 errorRelPerm += (1/krw)* (std::abs(lowerDelta * (krw - 1.0)) + eIntPerm); 
-                                errorCapPress += std::abs(pc - pe) + eIntPc;
-                                errorCapPressNorm += (1/pc)* (std::abs(pc - pe) + eIntPc);
+                                errorCapPress += std::abs(lowerDelta* (pc - pe)) + eIntPc;
+                                errorCapPressNorm += (1/pc)* (std::abs(lowerDelta* (pc - pe)) + eIntPc);
                             }
                         }
                     Scalar eIntPress = calculateErrorPressIntegral(bottom, top, pressW, gasPlumeDist, bottomPressW);
@@ -1093,8 +1093,8 @@ namespace Dumux {
 
 
                 //// select which criterion is being used (Zakaria 2022-08-25)
-                criterion_[i] = errorSat / (domainHeight - gasPlumeDist);
-                //criterion_[i] = errorRelPerm / (domainHeight - gasPlumeDist);
+                //criterion_[i] = errorSat / (domainHeight - gasPlumeDist);
+                criterion_[i] = errorRelPerm / (domainHeight - gasPlumeDist);
                 //criterion_[i] =  errorPress / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorSatNorm / (domainHeight - gasPlumeDist);
                 //criterion_[i] = errorRelPermNorm / (domainHeight - gasPlumeDist);

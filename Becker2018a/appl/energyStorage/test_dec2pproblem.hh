@@ -853,8 +853,8 @@ namespace Dumux {
 		      ////
 
 		      // capillary pressure errors (Zakaria 2022-08-30)
-		      errorCapPress[i] += std::abs(pc - pe);
-		      errorCapPressNorm[i] += (1/pc)* std::abs(pc - pe);
+		      errorCapPress[i] += std::abs(deltaZ * (pc - pe));
+		      errorCapPressNorm[i] += (1/pc)* std::abs(deltaZ * (pc - pe));
 		      ////
 		    }
 		  else if (bottom >= gasPlumeDist)
@@ -867,8 +867,8 @@ namespace Dumux {
 		      errorRelPerm[i] += eIntPerm;
 		      
 		      // errors in normalized variables (Zakaria 2022-08-12)
-		      errorSatNorm[i] +=(1/satW)* eIntSat;
-		      errorRelPermNorm[i] +=(1/krw)* eIntPerm;
+		      errorSatNorm[i] += (1/satW)* eIntSat;
+		      errorRelPermNorm[i] += (1/krw)* eIntPerm;
 		      ////
 
 		      // capillary pressure errors (Zakaria 2022-08-30)
@@ -896,8 +896,8 @@ namespace Dumux {
 
 		      // capillary pressure errors (Zakaria 2022-08-30)
 		      Scalar eIntPc = calculateErrorCapPressIntegral(gasPlumeDist, top, pc, gasPlumeDist);
-		      errorCapPress[i] += std::abs(pc - pe) + eIntPc;
-		      errorCapPressNorm[i] += (1/pc)* (std::abs(pc - pe) + eIntPc);
+		      errorCapPress[i] += std::abs(lowerDelta * (pc - pe)) + eIntPc;
+		      errorCapPressNorm[i] += (1/pc)* (std::abs(lowerDelta * (pc - pe)) + eIntPc);
 		      ////
 		    }
 		}

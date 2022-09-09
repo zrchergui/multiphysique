@@ -210,8 +210,8 @@ namespace Dumux
                                             ////
                                             
                                             // capillary pressure errors (Zakaria 2022-08-30)
-                                            errorCapPress += std::abs(pc - pe);
-                                            errorCapPressNorm += (1/pc)* std::abs(pc - pe);
+                                            errorCapPress += std::abs(deltaZ * (pc - pe));
+                                            errorCapPressNorm += (1/pc)* std::abs(deltaZ * (pc - pe));
                                             ////
                                         }
                                     else if (bottom >= gasPlumeDist)
@@ -251,8 +251,8 @@ namespace Dumux
 
                                             // capillary pressure errors (Zakaria 2022-08-30)
                                             Scalar eIntPc = calculateErrorCapPressIntegral(gasPlumeDist, top, pc, gasPlumeDist);
-                                            errorCapPress += std::abs(pc - pe) + eIntPc;
-                                            errorCapPressNorm += (1/pc)* (std::abs(pc - pe) + eIntPc);
+                                            errorCapPress += std::abs(lowerDelta * (pc - pe)) + eIntPc;
+                                            errorCapPressNorm += (1/pc)* (std::abs(lowerDelta * (pc - pe)) + eIntPc);
                                             ////
                                         }
                                 }
@@ -262,8 +262,8 @@ namespace Dumux
                             errorPressNorm += (1/pressW)* eIntPress;
                             ////
                         }
-                    indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
-                    //indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
+                    //indicatorVector_[i] = errorSat/(domainHeight - gasPlumeDist);
+                    indicatorVector_[i] = errorRelPerm/(domainHeight - gasPlumeDist);
 
                     // update of pressure and normalized errors (Zakaria 2022-08-12)
                     //indicatorVector_[i] =  errorSatNorm/(domainHeight - gasPlumeDist);
