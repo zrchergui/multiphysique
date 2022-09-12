@@ -753,6 +753,11 @@ namespace Dumux {
 		}
 	    }
 	  averageSatColumn[i] = averageSatColumn[i]/totalVolume;//average wetting saturation in column (equals gasPlumeDist for SI and no compressibility)
+
+	  // to make sure the average saturation does not exceed 1, otherwise Newton method may not converge to compute the gas plume thickness (Zakaria 2022-09-12)
+	  averageSatColumn[i] = std::min(averageSatColumn[i],1.);
+	  ////
+
 	  //averageSatPlume[i] = averageSatPlume[i]/gasVolume;//average wetting saturation in plume
 
 	  //            outputFile_.open("averageSatColumn.out", std::ios::app);
@@ -1449,6 +1454,7 @@ namespace Dumux {
 
 	  Scalar fullIntegral = 1.0 / (1.0 - lambda) * (1.0 - resSatW - resSatN) / ((densityW - densityNw) * gravity) * (std::pow(entryP, lambda)
 															 - std::pow(entryP, 2.0 - lambda) + std::pow((domainHeight * (densityW - densityNw) * gravity + entryP), (1.0 - lambda)));
+
 	  //GasPlumeDist>0
 	  if (fullIntegral < satW * domainHeight)
             {
@@ -1459,9 +1465,9 @@ namespace Dumux {
 		  iterNumber += 1;
 		  ////
 
-		  Scalar residual = 1.0 / (1.0 - lambda) * std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP),(1.0 - lambda))
-                    * (1.0 - resSatW - resSatN) * std::pow(entryP, lambda) / ((densityW - densityNw) * gravity) + resSatW * (domainHeight - Xi)
-                    - entryP * (1.0 - resSatW - resSatN) / ((1.0 - lambda) * (densityW - densityNw) * gravity) + Xi - satW * domainHeight;
+		  Scalar residual = 1.0 / (1.0 - lambda) * std::pow(((domainHeight - Xi) * (densityW - densityNw) * gravity + entryP),(1.0 - lambda)) * (1.0 - resSatW - resSatN) 
+		    * std::pow(entryP, lambda) / ((densityW - densityNw) * gravity) + resSatW * (domainHeight - Xi) - entryP * (1.0 - resSatW - resSatN) / ((1.0 - lambda) * (densityW - densityNw) * gravity) 
+		    + Xi - satW * domainHeight;
 
 		  if (fabs(residual) < 1e-10) 
 		    break;

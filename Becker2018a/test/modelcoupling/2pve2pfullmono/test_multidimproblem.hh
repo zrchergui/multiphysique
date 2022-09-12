@@ -728,6 +728,11 @@ namespace Dumux {
                                 }
                         }
                     averageSatColumn[i] = averageSatColumn[i]/totalVolume;//average wetting saturation in column (equals gasPlumeDist for SI and no compressibility)
+
+                    // to make sure the average saturation does not exceed 1, otherwise Newton method may not converge to compute the gas plume thickness (Zakaria 2022-09-12)
+                    averageSatColumn[i] = std::min(averageSatColumn[i],1.);
+                    ////
+
                     // outputFile_.open("averageSatColumn.out", std::ios::app);
                     // outputFile_ << " " << averageSatColumn[i];
                     // outputFile_.close();

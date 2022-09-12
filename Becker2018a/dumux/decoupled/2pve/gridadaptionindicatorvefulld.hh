@@ -122,6 +122,10 @@ namespace Dumux
                         }
                     averageSatColumn = averageSatColumn/totalVolume;
 
+                    // to make sure the average saturation does not exceed 1, otherwise Newton method may not converge to compute the gas plume thickness (Zakaria 2022-09-12)
+                    averageSatColumn = std::min(averageSatColumn,1.);
+                    ////
+
                     Scalar gasPlumeDist = calculateGasPlumeDist(averageSatColumn);
 
                     Scalar errorSat = 0.0;
