@@ -1,8 +1,8 @@
 # multiphysique
 Stage EV
-In this internship. I have used DuMu$^X$, as simulation software. DuMu$^X$ is an open-source, C++ simulator from the University of Stuttgart designed to simulate flows in porous media. DuMu$^X$ is a toolbox based on DUNE (Distributed and Unified Numeric Environment), which was developed to solve a wide range of problems related to porous media. 
+In this internship. I have used DuMuX, as simulation software. DuMuX is an open-source, C++ simulator from the University of Stuttgart designed to simulate flows in porous media. DuMuX is a toolbox based on DUNE (Distributed and Unified Numeric Environment), which was developed to solve a wide range of problems related to porous media. 
 
-To solve the governing equations of the model, DuMu$^X$ uses monolithic  or sequential methods. The sequential algorithm is based on reformulating the equations of multi-phase flow into one equation for
+To solve the governing equations of the model, DuMuX uses monolithic  or sequential methods. The sequential algorithm is based on reformulating the equations of multi-phase flow into one equation for
 pressure on the one hand,  and equations for phase and transport on the other hand. The most used sequential model is the fractional flow formulation for two-phase flows which is usually implemented applying an Implicit Pressure and Explicit Saturation algorithm (IMPES). 
  With the sequential structure, we can use different methods of discretization for different equations, the standard method used being a cell-centered finite-volume method. 
  
