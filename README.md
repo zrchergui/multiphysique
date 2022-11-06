@@ -1,5 +1,6 @@
 # multiphysique
-Stage EV
+Stage EV.
+
 In this internship. I have used DuMuX, as simulation software. DuMuX is an open-source, C++ simulator from the University of Stuttgart designed to simulate flows in porous media. DuMuX is a toolbox based on DUNE (Distributed and Unified Numeric Environment), which was developed to solve a wide range of problems related to porous media. 
 
 To solve the governing equations of the model, DuMuX uses monolithic  or sequential methods. The sequential algorithm is based on reformulating the equations of multi-phase flow into one equation for
